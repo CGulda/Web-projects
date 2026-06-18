@@ -1,0 +1,96 @@
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #111;
+      color: #f8f8f8;
+      font-family: system-ui, sans-serif;
+    }
+    #controls {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 58px;
+      padding: 16px 8px;
+      box-sizing: border-box;
+      background: rgba(16, 16, 20, 0.92);
+      border-right: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+      transition: width 0.24s ease, background 0.24s ease;
+      z-index: 10;
+    }
+    #controls:hover {
+      width: 280px;
+      background: rgba(16, 16, 20, 0.98);
+    }
+    #controls::after {
+      content: "OPTIONS";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%) rotate(90deg);
+      transform-origin: left top;
+      color: rgba(255, 255, 255, 0.75);
+      letter-spacing: 0.18em;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    #controls:hover::after {
+      opacity: 0;
+    }
+    #controls > * {
+      opacity: 1;
+      transition: opacity 0.18s ease;
+    }
+    #controls:not(:hover) > * {
+      opacity: 0;
+    }
+    #controls h1 {
+      margin: 0 0 10px;
+      font-size: 1.2rem;
+      letter-spacing: 0.04em;
+    }
+    #controls label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.92rem;
+      line-height: 1.4;
+    }
+    #controls input[type="range"],
+    #controls input[type="number"] {
+      width: 100%;
+    }
+    button {
+      border: none;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: #111;
+      font-weight: 700;
+      background: #fff;
+      border-radius: 10px;
+      transition: transform 0.15s ease;
+    }
+    button:hover { transform: scale(1.02); }
+    #canvas-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .small { color: #b8b8b8; font-size: 0.85rem; }
