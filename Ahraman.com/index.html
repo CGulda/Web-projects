@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1014">
+  <meta name="description" content="Generative art and code-built maze patterns by Ahraman Design.">
+  <title>Ahraman · Patterns</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html { min-width: 320px; scroll-behavior: smooth; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      background: radial-gradient(ellipse at 70% 15%, rgb(34 70 67 / 16%), transparent 48%), var(--app-bg);
+    }
+
+    #mesh-background {
+      position: fixed;
+      z-index: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .layout {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      min-height: 100vh;
+      grid-template-columns: 76px minmax(0, 1fr);
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .pattern-nav {
+      position: sticky;
+      top: 0;
+      display: flex;
+      width: 76px;
+      height: 100vh;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+      padding: 22px 10px;
+      border-right: 1px solid var(--border);
+      background: rgb(13 20 23 / 92%);
+      backdrop-filter: blur(14px);
+      transition: width 180ms ease, background 180ms ease;
+    }
+
+    .pattern-nav:hover,
+    .pattern-nav:focus-within {
+      width: 250px;
+      background: rgb(13 20 23 / 97%);
+    }
+
+    .nav-label {
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 10px 12px;
+      color: #84928f;
+      font-size: 0.69rem;
+      font-weight: 720;
+      letter-spacing: 0.17em;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .pattern-nav:hover .nav-label,
+    .pattern-nav:focus-within .nav-label { text-align: left; }
+
+    .pattern-list {
+      display: grid;
+      align-content: start;
+      gap: 9px;
+    }
+
+    .pattern-link {
+      display: flex;
+      min-width: 220px;
+      min-height: 48px;
+      align-items: center;
+      gap: 13px;
+      padding: 6px 9px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: #c3cfcb;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+
+    .pattern-link:hover,
+    .pattern-link:focus-visible,
+    .pattern-link[aria-current="location"] {
+      border-color: rgb(115 229 196 / 22%);
+      background: rgb(115 229 196 / 9%);
+      color: #f0f8f5;
+      outline: none;
+    }
+
+    .pattern-icon {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgb(255 255 255 / 3%);
+      color: var(--accent);
+    }
+
+    .pattern-icon svg { width: 24px; height: 24px; }
+
+    .pattern-name {
+      overflow: hidden;
+      font-size: 0.88rem;
+      font-weight: 620;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .pattern-nav:hover .pattern-name,
+    .pattern-nav:focus-within .pattern-name { opacity: 1; }
+
+    .nav-caption {
+      margin: auto 8px 0;
+      color: #76827f;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .pattern-nav:hover .nav-caption,
+    .pattern-nav:focus-within .nav-caption { opacity: 1; }
+
+    main {
+      min-width: 0;
+      align-self: center;
+      width: min(1120px, calc(100% - 72px));
+      margin: 0 auto;
+      padding: 42px 0;
+    }
+
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      scroll-margin-top: 20px;
+    }
+
+    .pattern-card {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      background: rgb(14 22 25 / 88%);
+      box-shadow: 0 20px 70px rgb(0 0 0 / 19%);
+      scroll-margin-top: 20px;
+      color: inherit;
+      text-decoration: none;
+      transition: transform 170ms ease, border-color 170ms ease, background 170ms ease;
+    }
+
+    .pattern-card:hover {
+      transform: translateY(-4px);
+      border-color: rgb(115 229 196 / 44%);
+      background: rgb(17 28 30 / 96%);
+    }
+
+    .pattern-card:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring), 0 20px 70px rgb(0 0 0 / 19%);
+    }
+
+    .pattern-card:target {
+      border-color: rgb(115 229 196 / 70%);
+      box-shadow: 0 0 0 1px rgb(115 229 196 / 18%), 0 20px 70px rgb(0 0 0 / 19%);
+    }
+
+    .preview {
+      position: relative;
+      display: grid;
+      min-height: 300px;
+      overflow: hidden;
+      place-items: center;
+      background:
+        radial-gradient(ellipse at center, rgb(41 89 79 / 17%), transparent 68%),
+        rgb(10 17 20 / 74%);
+    }
+
+    .preview::before {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgb(179 214 205 / 14%) 0.7px, transparent 0.7px);
+      background-size: 18px 18px;
+      content: "";
+      pointer-events: none;
+    }
+
+    .preview svg {
+      position: relative;
+      z-index: 1;
+      width: min(78%, 390px);
+      height: 230px;
+      filter: drop-shadow(0 0 17px rgb(115 229 196 / 11%));
+    }
+
+    .preview .circle-art { width: min(76%, 340px); height: 250px; }
+
+    .card-details {
+      display: grid;
+      gap: 9px;
+      padding: 21px 23px 23px;
+    }
+
+    .card-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-heading h2 {
+      margin: 0;
+      font-size: 1.13rem;
+      font-weight: 620;
+      letter-spacing: -0.035em;
+    }
+
+    .card-number {
+      color: #7e8d89;
+      font-size: 0.73rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.08em;
+    }
+
+    .card-details p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .pattern-nav {
+        position: sticky;
+        z-index: 2;
+        top: 0;
+        width: 100%;
+        height: auto;
+        gap: 8px;
+        padding: 10px 16px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .pattern-nav:hover,
+      .pattern-nav:focus-within { width: 100%; }
+      .nav-label { padding: 3px 4px; text-align: left; }
+      .pattern-nav:hover .nav-label,
+      .pattern-nav:focus-within .nav-label { text-align: left; }
+      .pattern-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .pattern-link { min-width: 0; min-height: 44px; gap: 9px; padding: 3px; }
+      .pattern-icon { width: 36px; height: 36px; }
+      .pattern-name { overflow: visible; font-size: 0.79rem; opacity: 1; }
+      .nav-caption { display: none; }
+      main { align-self: start; width: min(620px, calc(100% - 32px)); padding: 24px 0 36px; }
+      .pattern-grid { grid-template-columns: 1fr; gap: 16px; }
+      .preview { min-height: 260px; }
+      .preview svg { height: 205px; }
+      .preview .circle-art { height: 225px; }
+    }
+
+    @media (max-width: 420px) {
+      .pattern-nav { padding-inline: 10px; }
+      .pattern-link { gap: 7px; }
+      .pattern-name { font-size: 0.73rem; }
+      main { width: calc(100% - 24px); padding-top: 16px; }
+      .preview { min-height: 230px; }
+      .card-details { padding: 18px; }
+    }
+
+  </style>
+</head>
+<body>
+  <canvas id="mesh-background" aria-hidden="true"></canvas>
+  <div class="layout">
+    <aside class="pattern-nav" aria-label="Pattern selection">
+      <p class="nav-label">PATTERNS</p>
+      <nav class="pattern-list">
+        <a class="pattern-link" href="#square-maze" aria-current="location">
+          <span class="pattern-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 4h16v16H4zM4 10h5V6h5v7h-3v4h6v-4h3M9 10v3H4m11-7h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="pattern-name">Square maze</span>
+        </a>
+        <a class="pattern-link" href="#circular-maze">
+          <span class="pattern-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/>
+              <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M12 3v3.5h3v3h-3v3h3.5v3h-3.5V21M21 12h-3.5v3h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="pattern-name">Circular maze</span>
+        </a>
+      </nav>
+      <p class="nav-caption">Choose a pattern to jump to its preview.</p>
+    </aside>
+
+    <main>
+      <div class="pattern-grid" aria-label="Generative maze patterns">
+        <a class="pattern-card" id="square-maze" href="maze%20builder.html" aria-label="Open Maze Builder">
+          <div class="preview" aria-hidden="true">
+            <svg viewBox="0 0 360 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="#d4e4df" stroke-width="2.3" stroke-linecap="square">
+                <path d="M90 25h180v180H90V25Z M90 77h45V48h43v58h-25v34h-63 M135 77v27h-34 M178 48h51v29h-30v29h49v34h-64 M229 48h41 M270 77h-22v29h22 M90 143h35v62 M159 205v-34h25 M248 106v24h22"/>
+              </g>
+              <path d="M90 111h35V77h53V48h51v29h-30v29h49v34h-64v34h-25v31h-59v-62H90v-32Z" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="90" cy="111" r="4" fill="#73e5c4"/>
+              <circle cx="184" cy="205" r="4" fill="#73e5c4"/>
+            </svg>
+          </div>
+          <div class="card-details">
+            <div class="card-heading">
+              <h2>Maze Builder</h2>
+              <span class="card-number">01</span>
+            </div>
+            <p>Build a custom square maze, reveal its solution, and save a print-ready page.</p>
+          </div>
+        </a>
+
+        <a class="pattern-card" id="circular-maze" href="circular%20maze%20stable.html" aria-label="Open Circular Maze">
+          <div class="preview" aria-hidden="true">
+            <svg class="circle-art" viewBox="0 0 300 250" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="#d4e4df" stroke-width="2">
+                <circle cx="150" cy="125" r="94"/>
+                <circle cx="150" cy="125" r="67"/>
+                <circle cx="150" cy="125" r="39"/>
+                <path d="M150 31v27 M150 97v28 M150 164v27 M150 219v-28 M56 125h27 M122 125h28 M189 125h28 M244 125h-27 M83.5 58.5l19.1 19.1 M150 125l-19.1-19.1 M216.5 191.5l-19.1-19.1 M216.5 58.5l-19.1 19.1 M150 125l19.1 19.1 M83.5 191.5l19.1-19.1"/>
+              </g>
+              <path d="M150 31v27h-28v39h28v28h39V97h28V70h-28V50" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M244 125h-27v28h-28v38h-39v-28h-28v-38H83" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="150" cy="31" r="4" fill="#73e5c4"/>
+              <circle cx="56" cy="125" r="4" fill="#73e5c4"/>
+            </svg>
+          </div>
+          <div class="card-details">
+            <div class="card-heading">
+              <h2>Circular Maze</h2>
+              <span class="card-number">02</span>
+            </div>
+            <p>Explore a radial maze that winds through rings and branching paths.</p>
+          </div>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('mesh-background');
+      const context = canvas.getContext('2d');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const navigationLinks = [...document.querySelectorAll('.pattern-link')];
+      let width = 0;
+      let height = 0;
+      let particles = [];
+      let animationFrame = 0;
+      let lastFrameTime = 0;
+
+      function createParticles() {
+        const area = width * height;
+        const count = Math.max(38, Math.min(115, Math.round(area / 15000)));
+        particles = Array.from({ length: count }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.38,
+          vy: (Math.random() - 0.5) * 0.38,
+          hue: 158 + Math.random() * 27
+        }));
+      }
+
+      function drawMesh(animate) {
+        if (animate) {
+          context.fillStyle = 'rgba(11, 16, 20, 0.2)';
+          context.fillRect(0, 0, width, height);
+          particles.forEach((point) => {
+            point.x += point.vx;
+            point.y += point.vy;
+            if (point.x < 0 || point.x > width) point.vx *= -1;
+            if (point.y < 0 || point.y > height) point.vy *= -1;
+          });
+        }
+
+        const limit = Math.min(145, Math.max(86, Math.hypot(width, height) * 0.075));
+        const limitSquared = limit * limit;
+        for (let i = 0; i < particles.length; i++) {
+          const point = particles[i];
+          for (let j = i + 1; j < particles.length; j++) {
+            const other = particles[j];
+            const dx = point.x - other.x;
+            const dy = point.y - other.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared >= limitSquared) continue;
+            const opacity = (1 - Math.sqrt(distanceSquared) / limit) * 0.17;
+            context.beginPath();
+            context.strokeStyle = `hsla(${(point.hue + other.hue) / 2}, 62%, 67%, ${opacity})`;
+            context.lineWidth = 0.8;
+            context.moveTo(point.x, point.y);
+            context.lineTo(other.x, other.y);
+            context.stroke();
+          }
+          context.beginPath();
+          context.fillStyle = `hsla(${point.hue}, 70%, 73%, 0.62)`;
+          context.arc(point.x, point.y, 1.25, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+
+      function resize() {
+        const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        context.fillStyle = '#0b1014';
+        context.fillRect(0, 0, width, height);
+        createParticles();
+        drawMesh(false);
+      }
+
+      function animate(timestamp) {
+        if (reducedMotion.matches) return;
+        if (timestamp - lastFrameTime >= 33) {
+          drawMesh(true);
+          lastFrameTime = timestamp;
+        }
+        animationFrame = window.requestAnimationFrame(animate);
+      }
+
+      function startAnimation() {
+        window.cancelAnimationFrame(animationFrame);
+        if (!reducedMotion.matches) animationFrame = window.requestAnimationFrame(animate);
+      }
+
+      function updateSelectedPattern() {
+        const currentHash = window.location.hash || '#square-maze';
+        navigationLinks.forEach((link) => {
+          if (link.getAttribute('href') === currentHash) {
+            link.setAttribute('aria-current', 'location');
+          } else {
+            link.removeAttribute('aria-current');
+          }
+        });
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      window.addEventListener('hashchange', updateSelectedPattern);
+      reducedMotion.addEventListener('change', startAnimation);
+      resize();
+      startAnimation();
+      updateSelectedPattern();
+    })();
+  </script>
+</body>
+</html>

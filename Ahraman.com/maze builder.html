@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1014">
+  <title>Maze Builder</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      min-width: 320px;
+      height: 100vh;
+      height: 100dvh;
+      margin: 0;
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      background: var(--app-bg);
+      overflow: hidden;
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .sidebar {
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100vh;
+      gap: 16px;
+      padding: 20px 16px;
+      border-right: 1px solid var(--border);
+      box-shadow: 12px 0 32px rgb(0 0 0 / 12%);
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    .sidebar-content {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .sidebar-toggle {
+      display: grid;
+      width: 40px;
+      min-height: 40px;
+      flex: 0 0 auto;
+      align-self: flex-end;
+      place-items: center;
+      padding: 0;
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+
+    .settings-collapsed {
+      grid-template-columns: 56px minmax(0, 1fr);
+    }
+
+    .settings-collapsed .sidebar {
+      align-items: center;
+      padding: 12px 8px;
+    }
+
+    .settings-collapsed .sidebar-content {
+      display: none;
+    }
+
+    .settings-collapsed .sidebar-toggle {
+      align-self: center;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid rgb(115 229 196 / 35%);
+      border-radius: 13px;
+      color: var(--accent);
+      background: rgb(115 229 196 / 9%);
+      font-size: 23px;
+    }
+
+    h1 {
+      margin: 14px 0 5px;
+      font-size: 1.55rem;
+      letter-spacing: -0.04em;
+    }
+
+    .intro, .credit, .hint {
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      line-height: 1.55;
+    }
+
+    .intro { margin: 0; }
+
+    .controls {
+      display: grid;
+      gap: 18px;
+    }
+
+    .controls > .field:first-of-type {
+      margin-bottom: 2px;
+    }
+
+    .resolution-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    [hidden] { display: none !important; }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field label, .field-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #dce8e3;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+
+    .value {
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="number"], select {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      outline: none;
+      background: var(--control-bg);
+      color: var(--text-strong);
+      font: inherit;
+      font-variant-numeric: tabular-nums;
+    }
+
+    select { cursor: pointer; }
+
+    input[type="number"]:focus-visible, select:focus-visible, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #dce5ed;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      margin: 0;
+    }
+
+    .status {
+      min-height: 1.4em;
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.4;
+    }
+
+    .status[data-state="error"] { color: #ff9a9a; }
+    .status[data-state="success"] { color: var(--accent); }
+
+    .credit {
+      margin: auto 0 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .stage {
+      position: relative;
+      display: grid;
+      min-width: 0;
+      min-height: 0;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      place-items: start center;
+      padding: 24px;
+      background-color: #111922;
+      background-image: radial-gradient(#344351 0.7px, transparent 0.7px);
+      background-size: 22px 22px;
+    }
+
+    .button-stack { display: grid; gap: 10px; }
+
+    canvas {
+      display: block;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      max-height: calc(100dvh - 48px);
+    }
+
+    @media (max-width: 720px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(360px, 1fr);
+      }
+
+      .settings-collapsed {
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 1fr;
+      }
+
+      .sidebar {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        align-items: start;
+        height: 42vh;
+        max-height: 42vh;
+        gap: 10px;
+        padding: 20px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar-content { min-height: 0; gap: 16px; }
+      .sidebar-toggle { align-self: flex-end; }
+      .settings-collapsed .sidebar {
+        display: flex;
+        align-items: center;
+        height: 100vh;
+        max-height: none;
+        padding: 12px 8px;
+        border-right: 1px solid var(--border);
+        border-bottom: 0;
+      }
+      .settings-collapsed .sidebar-toggle { align-self: center; }
+      .brand-mark { display: none; }
+      h1 { margin-top: 0; }
+      .intro { margin-bottom: 4px; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+      .button-stack { grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .status { grid-column: 1 / -1; }
+      .credit { display: none; }
+      .stage { min-height: 0; padding: 16px; }
+    }
+
+    @media (max-width: 420px) {
+      .controls { grid-template-columns: 1fr; }
+      .button-stack { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      body:not(.settings-collapsed) {
+        grid-template-rows: minmax(0, 42vh) minmax(0, 1fr);
+      }
+
+      body:not(.settings-collapsed) .stage { min-height: 0; }
+      .settings-collapsed .stage { height: 100vh; height: 100dvh; min-height: 0; }
+      body:not(.settings-collapsed) canvas { max-height: calc(58vh - 32px); }
+      .settings-collapsed canvas { max-height: calc(100dvh - 32px); }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar app-control-panel">
+    <button class="sidebar-toggle" id="toggleSettings" type="button" aria-label="Hide settings" aria-expanded="true" title="Hide settings">‹</button>
+    <div class="sidebar-content" id="sidebarContent">
+      <header>
+        <div class="brand-mark" aria-hidden="true">⌘</div>
+        <h1>Maze Builder</h1>
+        <p class="intro">Create a new maze, reveal its route, and save a print-ready image.</p>
+      </header>
+
+      <section class="controls" aria-label="Maze settings">
+        <div class="field">
+          <label for="canvasSize">Canvas size</label>
+          <select id="canvasSize">
+            <option value="A4">A4 · 300 DPI</option>
+            <option value="A5">A5 · 300 DPI</option>
+            <option value="FHD">FHD · 1080p</option>
+            <option value="4K">4K · UHD</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <div class="field" id="orientationField">
+          <label for="orientation">Orientation</label>
+          <select id="orientation">
+            <option value="portrait">Portrait · vertical</option>
+            <option value="landscape">Landscape · horizontal</option>
+          </select>
+        </div>
+        <div class="resolution-fields" id="customResolutionFields" hidden>
+          <div class="field">
+            <label for="customWidth">Width · px</label>
+            <input id="customWidth" type="number" min="64" max="8192" step="1" value="1920">
+          </div>
+          <div class="field">
+            <label for="customHeight">Height · px</label>
+            <input id="customHeight" type="number" min="64" max="8192" step="1" value="1080">
+          </div>
+        </div>
+        <p class="hint" id="canvasDimensions" aria-live="polite"></p>
+        <div class="field">
+          <label for="pathSize">Path size <span class="value" id="pathSizeValue">50 px</span></label>
+          <input id="pathSize" type="number" min="20" max="120" step="1" value="50">
+        </div>
+        <div class="field">
+          <label for="thickness">Wall thickness <span class="value" id="thicknessValue">4 px</span></label>
+          <input id="thickness" type="number" min="1" max="16" step="1" value="4">
+        </div>
+        <div class="field">
+          <label for="seed">Seed</label>
+          <input id="seed" type="number" min="0" max="999999" step="1" value="666">
+        </div>
+        <label class="check-row" for="animated">
+          <input id="animated" type="checkbox" checked>
+          Animate maze creation
+        </label>
+        <label class="check-row" for="showSolution">
+          <input id="showSolution" type="checkbox" checked>
+          Show solution
+        </label>
+        <div class="button-stack">
+          <button class="primary" id="regenerate" type="button">Regenerate maze</button>
+          <button id="savePNG" type="button">Save print PNG</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <p class="credit">Square maze builder · Ahraman Design</p>
+    </div>
+  </aside>
+
+  <main class="stage" id="stage" aria-label="Generated maze">
+    <canvas id="mazeCanvas" aria-label="Maze illustration"></canvas>
+  </main>
+
+  <script>
+    const canvas = document.getElementById('mazeCanvas');
+    const stage = document.getElementById('stage');
+    const context = canvas.getContext('2d');
+    const pathSizeInput = document.getElementById('pathSize');
+    const thicknessInput = document.getElementById('thickness');
+    const seedInput = document.getElementById('seed');
+    const canvasSizeInput = document.getElementById('canvasSize');
+    const orientationInput = document.getElementById('orientation');
+    const orientationField = document.getElementById('orientationField');
+    const customResolutionFields = document.getElementById('customResolutionFields');
+    const customWidthInput = document.getElementById('customWidth');
+    const customHeightInput = document.getElementById('customHeight');
+    const canvasDimensions = document.getElementById('canvasDimensions');
+    const animatedInput = document.getElementById('animated');
+    const solutionInput = document.getElementById('showSolution');
+    const status = document.getElementById('status');
+    const canvasPresets = {
+      A4: { width: 2480, height: 3508, label: 'A4 · 300 DPI' },
+      A5: { width: 1748, height: 2480, label: 'A5 · 300 DPI' },
+      FHD: { width: 1920, height: 1080, label: 'FHD · 1080p' },
+      '4K': { width: 3840, height: 2160, label: '4K · UHD' }
+    };
+    const maxCanvasPixels = 33554432;
+    const directions = [
+      { x: 0, y: -1, wall: 0, opposite: 2 },
+      { x: 1, y: 0, wall: 1, opposite: 3 },
+      { x: 0, y: 1, wall: 2, opposite: 0 },
+      { x: -1, y: 0, wall: 3, opposite: 1 }
+    ];
+
+    let maze = null;
+    let animationFrame = 0;
+    let revealCount = 0;
+    let cellSize = 50;
+    let wallThickness = 4;
+    let seed = 666;
+
+    function setStatus(message, state = '') {
+      status.textContent = message;
+      status.dataset.state = state;
+    }
+
+    function getCanvasDimensions() {
+      let width;
+      let height;
+      const presetName = canvasSizeInput.value;
+      if (presetName === 'custom') {
+        width = Number(customWidthInput.value);
+        height = Number(customHeightInput.value);
+        if (!Number.isInteger(width) || width < 64 || width > 8192 ||
+            !Number.isInteger(height) || height < 64 || height > 8192) {
+          throw new Error('Custom width and height must be integers from 64 to 8192 px.');
+        }
+      } else {
+        const preset = canvasPresets[presetName];
+        if (!preset) throw new Error('Choose a supported canvas size.');
+        const landscape = orientationInput.value === 'landscape';
+        width = landscape ? Math.max(preset.width, preset.height) : Math.min(preset.width, preset.height);
+        height = landscape ? Math.min(preset.width, preset.height) : Math.max(preset.width, preset.height);
+      }
+      if (width * height > maxCanvasPixels) {
+        throw new Error('Canvas resolution is too large. Maximum total resolution is 33.5 megapixels.');
+      }
+      canvasDimensions.textContent = `${width.toLocaleString()} × ${height.toLocaleString()} px`;
+      return { width, height, preset: presetName };
+    }
+
+    function updateResolutionControls() {
+      const isCustom = canvasSizeInput.value === 'custom';
+      orientationField.hidden = isCustom;
+      customResolutionFields.hidden = !isCustom;
+      if (isCustom) getCanvasDimensions();
+    }
+
+    function updatePresetOrientation() {
+      if (canvasSizeInput.value === 'custom') {
+        updateResolutionControls();
+        return;
+      }
+      const preset = canvasPresets[canvasSizeInput.value];
+      if (!preset) {
+        setStatus('Choose a supported canvas size.', 'error');
+        return;
+      }
+      orientationInput.value = preset.width > preset.height ? 'landscape' : 'portrait';
+      getCanvasDimensions();
+    }
+
+    function readSettings() {
+      const pathSize = Number(pathSizeInput.value);
+      const thickness = Number(thicknessInput.value);
+      const nextSeed = Number(seedInput.value);
+      if (!Number.isInteger(pathSize) || pathSize < 20 || pathSize > 120) {
+        throw new Error('Path size must be an integer from 20 to 120.');
+      }
+      if (!Number.isInteger(thickness) || thickness < 1 || thickness > 16) {
+        throw new Error('Wall thickness must be an integer from 1 to 16.');
+      }
+      if (!Number.isInteger(nextSeed) || nextSeed < 0 || nextSeed > 999999) {
+        throw new Error('Seed must be an integer from 0 to 999999.');
+      }
+      cellSize = pathSize;
+      wallThickness = thickness;
+      seed = nextSeed;
+      document.getElementById('pathSizeValue').textContent = `${cellSize} px`;
+      document.getElementById('thicknessValue').textContent = `${wallThickness} px`;
+    }
+
+    function makeRandomGenerator(value) {
+      let state = value >>> 0;
+      return function random() {
+        state += 0x6D2B79F5;
+        let next = state;
+        next = Math.imul(next ^ (next >>> 15), next | 1);
+        next ^= next + Math.imul(next ^ (next >>> 7), next | 61);
+        return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    function buildMaze(columns, rows, value) {
+      const random = makeRandomGenerator(value);
+      const cells = Array.from({ length: columns }, () =>
+        Array.from({ length: rows }, () => ({ walls: [true, true, true, true], visited: false }))
+      );
+      const start = {
+        x: Math.floor(random() * columns),
+        y: Math.floor(random() * rows)
+      };
+      const order = [start];
+      const stack = [start];
+      cells[start.x][start.y].visited = true;
+
+      while (stack.length) {
+        const current = stack[stack.length - 1];
+        const options = directions.filter(({ x, y }) => {
+          const nextX = current.x + x;
+          const nextY = current.y + y;
+          return nextX >= 0 && nextX < columns &&
+            nextY >= 0 && nextY < rows && !cells[nextX][nextY].visited;
+        });
+        if (!options.length) {
+          stack.pop();
+          continue;
+        }
+
+        const direction = options[Math.floor(random() * options.length)];
+        const next = { x: current.x + direction.x, y: current.y + direction.y };
+        cells[current.x][current.y].walls[direction.wall] = false;
+        cells[next.x][next.y].walls[direction.opposite] = false;
+        cells[next.x][next.y].visited = true;
+        order.push(next);
+        stack.push(next);
+      }
+
+      return { cells, columns, rows, order, start, solution: findSolution(cells, columns, rows, start) };
+    }
+
+    function findSolution(cells, columns, rows, start) {
+      const indexOf = (x, y) => y * columns + x;
+      const queue = [start];
+      const previous = new Map([[indexOf(start.x, start.y), null]]);
+      let farthest = start;
+
+      for (let cursor = 0; cursor < queue.length; cursor++) {
+        const current = queue[cursor];
+        farthest = current;
+        directions.forEach((direction) => {
+          if (cells[current.x][current.y].walls[direction.wall]) return;
+          const x = current.x + direction.x;
+          const y = current.y + direction.y;
+          const nextIndex = indexOf(x, y);
+          if (previous.has(nextIndex)) return;
+          previous.set(nextIndex, indexOf(current.x, current.y));
+          queue.push({ x, y });
+        });
+      }
+
+      const route = [];
+      let currentIndex = indexOf(farthest.x, farthest.y);
+      while (currentIndex !== null) {
+        route.push({ x: currentIndex % columns, y: Math.floor(currentIndex / columns) });
+        currentIndex = previous.get(currentIndex);
+      }
+      return route.reverse();
+    }
+
+    function drawMaze(target, width, height, count, includeSolution, exportMode = false) {
+      if (exportMode) {
+        target.fillStyle = '#ffffff';
+        target.fillRect(0, 0, width, height);
+      } else {
+        target.clearRect(0, 0, width, height);
+      }
+      if (!maze) return;
+
+      const mazeWidth = maze.columns * cellSize;
+      const mazeHeight = maze.rows * cellSize;
+      const left = Math.floor((width - mazeWidth) / 2);
+      const top = Math.floor((height - mazeHeight) / 2);
+
+      target.save();
+      target.translate(left, top);
+      target.fillStyle = exportMode ? '#ffffff' : '#111922';
+      target.fillRect(0, 0, mazeWidth, mazeHeight);
+
+      const visibleCount = Math.max(0, Math.min(count, maze.order.length));
+      target.lineWidth = wallThickness;
+      target.lineCap = 'square';
+      target.strokeStyle = exportMode ? '#000000' : '#dce8ed';
+      target.beginPath();
+      for (let i = 0; i < visibleCount; i++) {
+        const { x, y } = maze.order[i];
+        const cell = maze.cells[x][y];
+        const px = x * cellSize;
+        const py = y * cellSize;
+        if (cell.walls[0]) { target.moveTo(px, py); target.lineTo(px + cellSize, py); }
+        if (cell.walls[1]) { target.moveTo(px + cellSize, py); target.lineTo(px + cellSize, py + cellSize); }
+        if (cell.walls[2]) { target.moveTo(px + cellSize, py + cellSize); target.lineTo(px, py + cellSize); }
+        if (cell.walls[3]) { target.moveTo(px, py + cellSize); target.lineTo(px, py); }
+      }
+      target.stroke();
+
+      if (includeSolution && visibleCount === maze.order.length && !exportMode) {
+        target.beginPath();
+        target.moveTo(maze.solution[0].x * cellSize + cellSize / 2, maze.solution[0].y * cellSize + cellSize / 2);
+        for (let i = 1; i < maze.solution.length; i++) {
+          target.lineTo(maze.solution[i].x * cellSize + cellSize / 2, maze.solution[i].y * cellSize + cellSize / 2);
+        }
+        target.strokeStyle = exportMode ? '#23856f' : '#73e5c4';
+        target.lineWidth = Math.max(2.5, wallThickness * 1.4);
+        target.lineJoin = 'round';
+        target.lineCap = 'round';
+        target.stroke();
+        target.fillStyle = exportMode ? '#23856f' : '#73e5c4';
+        [maze.solution[0], maze.solution[maze.solution.length - 1]].forEach((point) => {
+          target.beginPath();
+          target.arc(point.x * cellSize + cellSize / 2, point.y * cellSize + cellSize / 2, Math.max(3, wallThickness), 0, Math.PI * 2);
+          target.fill();
+        });
+      }
+      target.restore();
+    }
+
+    function render() {
+      drawMaze(context, canvas.width, canvas.height, revealCount, solutionInput.checked);
+    }
+
+    function resizeCanvas() {
+      const { width, height } = getCanvasDimensions();
+      canvas.width = width;
+      canvas.height = height;
+      render();
+    }
+
+    function generateMaze() {
+      try {
+        readSettings();
+      } catch (error) {
+        setStatus(error.message, 'error');
+        return;
+      }
+      let dimensions;
+      try {
+        dimensions = getCanvasDimensions();
+      } catch (error) {
+        setStatus(error.message, 'error');
+        return;
+      }
+      cancelAnimationFrame(animationFrame);
+      const { width, height } = dimensions;
+      canvas.width = width;
+      canvas.height = height;
+      const columns = Math.max(1, Math.floor(width / cellSize));
+      const rows = Math.max(1, Math.floor(height / cellSize));
+      maze = buildMaze(columns, rows, seed);
+      revealCount = animatedInput.checked ? 0 : maze.order.length;
+      render();
+
+      if (!animatedInput.checked) {
+        setStatus(`${columns} × ${rows} maze ready.`);
+        return;
+      }
+
+      setStatus('Building maze…');
+      const animationStarted = performance.now();
+      const animationDuration = 1100;
+      function revealNext(now) {
+        revealCount = Math.ceil(maze.order.length * Math.min(1, (now - animationStarted) / animationDuration));
+        render();
+        if (revealCount < maze.order.length) {
+          animationFrame = requestAnimationFrame(revealNext);
+        } else {
+          setStatus(`${columns} × ${rows} maze ready.`);
+        }
+      }
+      animationFrame = requestAnimationFrame(revealNext);
+    }
+
+    function saveAsPrintPNG() {
+      if (!maze) {
+        setStatus('Generate a maze before saving.', 'error');
+        return;
+      }
+      try {
+        readSettings();
+      } catch (error) {
+        setStatus(error.message, 'error');
+        return;
+      }
+      const exportCanvas = document.createElement('canvas');
+      let exportSize;
+      try {
+        exportSize = getCanvasDimensions();
+      } catch (error) {
+        setStatus(error.message, 'error');
+        return;
+      }
+      exportCanvas.width = exportSize.width;
+      exportCanvas.height = exportSize.height;
+      const exportContext = exportCanvas.getContext('2d');
+      if (!exportContext) {
+        setStatus('Could not create the PNG image.', 'error');
+        return;
+      }
+      drawMaze(
+        exportContext,
+        exportCanvas.width,
+        exportCanvas.height,
+        maze.order.length,
+        false,
+        true
+      );
+      exportCanvas.toBlob((blob) => {
+        if (!blob) {
+          setStatus('The browser could not encode the maze as a PNG.', 'error');
+          return;
+        }
+        try {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          const exportLabel = exportSize.preset === 'custom'
+            ? `custom-${exportSize.width}x${exportSize.height}`
+            : `${exportSize.preset.toLowerCase()}-${orientationInput.value}`;
+          link.download = `maze-${exportLabel}-${seed}.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          setStatus(`Saved ${exportCanvas.width.toLocaleString()} × ${exportCanvas.height.toLocaleString()} px PNG.`, 'success');
+        } catch (error) {
+          setStatus(`Could not save PNG: ${error.message}`, 'error');
+        }
+      }, 'image/png');
+    }
+
+    document.getElementById('regenerate').addEventListener('click', generateMaze);
+    document.getElementById('savePNG').addEventListener('click', saveAsPrintPNG);
+    [pathSizeInput, thicknessInput, seedInput].forEach((input) => {
+      input.addEventListener('change', generateMaze);
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') generateMaze();
+      });
+    });
+    animatedInput.addEventListener('change', generateMaze);
+    solutionInput.addEventListener('change', render);
+    canvasSizeInput.addEventListener('change', () => {
+      updatePresetOrientation();
+      updateResolutionControls();
+      resizeCanvas();
+      generateMaze();
+    });
+    orientationInput.addEventListener('change', () => {
+      getCanvasDimensions();
+      resizeCanvas();
+      generateMaze();
+    });
+    [customWidthInput, customHeightInput].forEach((input) => {
+      input.addEventListener('change', () => {
+        try {
+          getCanvasDimensions();
+          resizeCanvas();
+          generateMaze();
+        } catch (error) {
+          setStatus(error.message, 'error');
+        }
+      });
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') input.dispatchEvent(new Event('change'));
+      });
+    });
+    document.getElementById('toggleSettings').addEventListener('click', (event) => {
+      const collapsed = document.body.classList.toggle('settings-collapsed');
+      event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+      event.currentTarget.setAttribute('aria-label', collapsed ? 'Show settings' : 'Hide settings');
+      event.currentTarget.title = collapsed ? 'Show settings' : 'Hide settings';
+      event.currentTarget.textContent = collapsed ? '›' : '‹';
+      requestAnimationFrame(resizeCanvas);
+    });
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      generateMaze();
+    });
+
+    resizeCanvas();
+    getCanvasDimensions();
+    generateMaze();
+  </script>
+</body>
+</html>

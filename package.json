@@ -1,0 +1,11 @@
+{
+  "name": "wavefunctioncollapse-node",
+  "version": "1.0.0",
+  "description": "A simple Wave Function Collapse implementation in Node.js",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "author": "",
+  "license": "MIT"
+}
