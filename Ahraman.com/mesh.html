@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1014">
+  <meta name="description" content="Create and share animated particle mesh artwork.">
+  <title>Mesh Generator · Ahraman</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar,
+    .sidebar::-webkit-scrollbar { display: none; }
+    body {
+      min-width: 320px;
+      height: 100vh;
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: minmax(270px, 340px) minmax(0, 1fr);
+      overflow: hidden;
+      background: var(--app-bg);
+    }
+
+    body.settings-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+    .sidebar {
+      z-index: 1;
+      display: flex;
+      min-height: 0;
+      height: 100vh;
+      flex-direction: column;
+      gap: 18px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding: 22px 18px;
+      border-right: 1px solid var(--border);
+      background: rgb(13 20 23 / 94%);
+      box-shadow: 12px 0 32px rgb(0 0 0 / 14%);
+      backdrop-filter: blur(14px);
+    }
+
+    .sidebar-toggle {
+      display: grid;
+      width: 40px;
+      min-height: 40px;
+      flex: 0 0 auto;
+      align-self: flex-end;
+      place-items: center;
+      padding: 0;
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+    .settings-collapsed .sidebar { align-items: center; padding: 12px 8px; }
+    .settings-collapsed .sidebar > header,
+    .settings-collapsed .sidebar > .controls { display: none; }
+    .settings-collapsed .sidebar-toggle { align-self: center; }
+    .sidebar header { display: flex; align-items: flex-start; gap: 12px; }
+    h1 { margin: 7px 0 4px; font-size: 1.45rem; letter-spacing: -0.04em; }
+    .intro, .hint { margin: 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; }
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid rgb(115 229 196 / 30%);
+      border-radius: 13px;
+      color: var(--accent);
+      background: rgb(115 229 196 / 8%);
+    }
+    .brand-mark svg { width: 26px; height: 26px; }
+    .controls { display: grid; gap: 14px; }
+    .field { display: grid; gap: 7px; }
+    .field > label, .field-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #dce8e3;
+      font-size: 0.83rem;
+      font-weight: 600;
+    }
+    .value { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .controls input[type="range"] { width: 100%; }
+    input[type="number"] { width: 100%; }
+    .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .toggle-row {
+      display: flex;
+      min-height: 39px;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: #dce8e3;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .toggle-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    .section-heading {
+      margin: 2px 0 0;
+      color: #85938f;
+      font-size: 0.69rem;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+    }
+    .preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    .preset-grid button { min-width: 0; padding: 8px 5px; font-size: 0.76rem; }
+    .button-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .button-stack button { padding: 10px 8px; font-size: 0.8rem; }
+    .button-stack .primary { grid-column: 1 / -1; }
+    .status { min-height: 1.3em; margin: 0; color: var(--text-muted); font-size: 0.77rem; line-height: 1.4; }
+    .status[data-state="error"] { color: #ff9a9a; }
+    .status[data-state="success"] { color: var(--accent); }
+    .share-field { display: grid; gap: 7px; }
+    .share-field label { color: #dce8e3; font-size: 0.8rem; font-weight: 600; }
+    .share-field input { width: 100%; font-size: 0.72rem; }
+    [hidden] { display: none !important; }
+    .stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 48% 45%, rgb(33 82 75 / 14%), transparent 58%),
+        #090e12;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    @media (max-width: 760px) {
+      body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 52dvh); }
+      .stage { grid-row: 1; }
+      .sidebar {
+        grid-row: 2;
+        height: auto;
+        min-height: 0;
+        padding: 14px 18px;
+        border-top: 1px solid var(--border);
+        border-right: 0;
+      }
+      body.settings-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 56px; }
+      .settings-collapsed .sidebar {
+        grid-column: 1;
+        grid-row: 2;
+        width: 100%;
+        height: 56px;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 8px 12px;
+        border-top: 1px solid var(--border);
+        border-right: 0;
+        border-bottom: 0;
+      }
+      .settings-collapsed .sidebar-toggle { align-self: center; }
+      .settings-collapsed .stage { grid-column: 1; grid-row: 1; }
+      .sidebar header { align-items: center; }
+      .brand-mark { width: 36px; height: 36px; }
+      h1 { margin-top: 0; font-size: 1.2rem; }
+      .intro { font-size: 0.76rem; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 14px; }
+      .section-heading, .toggle-grid, .preset-grid, .button-stack, .share-field, .status { grid-column: 1 / -1; }
+      .palette-fields { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+      .toggle-grid { grid-template-columns: repeat(3, 1fr); }
+      .button-stack { grid-template-columns: repeat(3, 1fr); }
+      .button-stack .primary { grid-column: auto; }
+    }
+
+    @media (max-width: 430px) {
+      .sidebar { gap: 12px; padding: 11px 13px; }
+      .controls { gap: 9px 11px; }
+      .toggle-grid { grid-template-columns: repeat(2, 1fr); }
+      .toggle-row { font-size: 0.74rem; }
+      .button-stack { grid-template-columns: 1fr 1fr; }
+      .button-stack .primary { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar" aria-label="Mesh generator controls">
+    <button class="sidebar-toggle" id="toggleSettings" type="button" aria-label="Hide settings" aria-expanded="true" title="Hide settings">‹</button>
+    <header>
+      <a class="brand-mark" href="index.html" aria-label="Back to patterns" title="Back to patterns">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M19 12H5m0 0 6 6m-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+      <div>
+        <h1>Mesh Generator</h1>
+        <p class="intro">Shape a living network of color, light, and motion.</p>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="Mesh settings">
+      <p class="section-heading">Structure &amp; motion</p>
+      <div class="field">
+        <label for="pointCount">Particle count <span class="value" id="pointCountValue"></span></label>
+        <input id="pointCount" type="range" min="10" max="180" value="100">
+      </div>
+      <div class="field">
+        <label for="linkRange">Connection range <span class="value" id="linkRangeValue"></span></label>
+        <input id="linkRange" type="range" min="25" max="240" value="110">
+      </div>
+      <div class="field">
+        <label for="pointSize">Particle size <span class="value" id="pointSizeValue"></span></label>
+        <input id="pointSize" type="range" min="0" max="5" step="0.5" value="1.5">
+      </div>
+      <div class="field">
+        <label for="speed">Motion speed <span class="value" id="speedValue"></span></label>
+        <input id="speed" type="range" min="1" max="12" value="3">
+      </div>
+      <div class="field">
+        <label for="trails">Trail length <span class="value" id="trailsValue"></span></label>
+        <input id="trails" type="range" min="0" max="100" value="78">
+      </div>
+      <div class="palette-fields">
+        <div class="field">
+          <label for="hue">Base hue <span class="value" id="hueValue"></span></label>
+          <input id="hue" type="range" min="0" max="360" value="165">
+        </div>
+        <div class="field">
+          <label for="variation">Color variation <span class="value" id="variationValue"></span></label>
+          <input id="variation" type="range" min="0" max="180" value="35">
+        </div>
+      </div>
+      <div class="field">
+        <label for="intensity">Color intensity <span class="value" id="intensityValue"></span></label>
+        <input id="intensity" type="range" min="20" max="100" value="72">
+      </div>
+      <div class="toggle-grid">
+        <label class="toggle-row"><input id="centerStart" type="checkbox"> Start at center</label>
+        <label class="toggle-row"><input id="symmetric" type="checkbox"> Symmetric</label>
+        <label class="toggle-row"><input id="constantSpeed" type="checkbox" checked> Constant speed</label>
+        <label class="toggle-row"><input id="blackHole" type="checkbox"> Black hole</label>
+      </div>
+      <p class="section-heading">Presets</p>
+      <div class="preset-grid" id="presets" aria-label="Mesh presets"></div>
+      <div class="field">
+        <label for="seed">Random seed</label>
+        <input id="seed" type="number" min="0" max="999999" step="1">
+      </div>
+      <div class="button-stack">
+        <button class="primary" id="randomize" type="button">Randomize</button>
+        <button id="restart" type="button">Restart</button>
+        <button id="share" type="button">Copy settings link</button>
+      </div>
+      <div class="share-field" id="shareField" hidden>
+        <label for="shareLink">Settings link · use for sharing or a QR code</label>
+        <input id="shareLink" type="url" readonly>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </section>
+  </aside>
+  <main class="stage" aria-label="Animated mesh preview">
+    <canvas id="meshCanvas" aria-label="Animated particle mesh"></canvas>
+  </main>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('meshCanvas');
+      const context = canvas.getContext('2d');
+      const controls = {
+        pointCount: document.getElementById('pointCount'),
+        linkRange: document.getElementById('linkRange'),
+        pointSize: document.getElementById('pointSize'),
+        speed: document.getElementById('speed'),
+        trails: document.getElementById('trails'),
+        hue: document.getElementById('hue'),
+        variation: document.getElementById('variation'),
+        intensity: document.getElementById('intensity'),
+        centerStart: document.getElementById('centerStart'),
+        symmetric: document.getElementById('symmetric'),
+        constantSpeed: document.getElementById('constantSpeed'),
+        blackHole: document.getElementById('blackHole'),
+        seed: document.getElementById('seed')
+      };
+      const presets = [
+        { name: 'Default', values: [100, 110, 1.5, 3, 78, 165, 35, 72, false, false, true] },
+        { name: 'Violet', values: [80, 90, 2, 2, 88, 275, 24, 68, false, false, true] },
+        { name: 'Starfield', values: [48, 190, 1, 5, 90, 198, 12, 86, true, false, true] },
+        { name: 'Orbit', values: [72, 125, 1.5, 2, 82, 42, 42, 76, true, true, false] },
+        { name: 'Deep sea', values: [120, 84, 2, 2, 72, 190, 50, 62, false, false, true] },
+        { name: 'Solar', values: [104, 92, 2.5, 3, 91, 34, 22, 88, false, true, true], blackHole: true },
+        { name: 'Ember', values: [88, 105, 2, 6, 74, 12, 28, 70, false, true, false] },
+        { name: 'Monochrome', values: [110, 95, 1, 2, 91, 190, 0, 88, false, false, true] }
+      ];
+      const labels = {
+        pointCount: value => `${value} nodes`,
+        linkRange: value => `${value} px`,
+        pointSize: value => `${value} px`,
+        speed: value => `${value}×`,
+        trails: value => `${value}%`,
+        hue: value => `${value}°`,
+        variation: value => `${value}°`,
+        intensity: value => `${value}%`
+      };
+      const state = {
+        width: 0,
+        height: 0,
+        pixelRatio: 1,
+        points: [],
+        settings: null,
+        random: Math.random,
+        frame: 0,
+        lastFrame: 0,
+        running: true
+      };
+      const status = document.getElementById('status');
+      const shareField = document.getElementById('shareField');
+      const shareLink = document.getElementById('shareLink');
+
+      function setStatus(message, kind = '') {
+        status.textContent = message;
+        status.dataset.state = kind;
+      }
+
+      function randomFromSeed(seed) {
+        let value = seed >>> 0;
+        return () => {
+          value += 0x6D2B79F5;
+          let result = value;
+          result = Math.imul(result ^ result >>> 15, result | 1);
+          result ^= result + Math.imul(result ^ result >>> 7, result | 61);
+          return ((result ^ result >>> 14) >>> 0) / 4294967296;
+        };
+      }
+
+      function readSettings() {
+        if (!controls.seed.value.trim()) throw new Error('Random seed is required.');
+        const values = {
+          pointCount: Number(controls.pointCount.value),
+          linkRange: Number(controls.linkRange.value),
+          pointSize: Number(controls.pointSize.value),
+          speed: Number(controls.speed.value),
+          trails: Number(controls.trails.value),
+          hue: Number(controls.hue.value),
+          variation: Number(controls.variation.value),
+          intensity: Number(controls.intensity.value),
+          centerStart: controls.centerStart.checked,
+          symmetric: controls.symmetric.checked,
+          constantSpeed: controls.constantSpeed.checked,
+          blackHole: controls.blackHole.checked,
+          seed: Number(controls.seed.value)
+        };
+        const limits = {
+          pointCount: [10, 180], linkRange: [25, 240], pointSize: [0, 5], speed: [1, 12],
+          trails: [0, 100], hue: [0, 360], variation: [0, 180], intensity: [20, 100],
+          seed: [0, 999999]
+        };
+        for (const [key, [min, max]] of Object.entries(limits)) {
+          if (!Number.isFinite(values[key]) || values[key] < min || values[key] > max) {
+            throw new Error(`${key} must be between ${min} and ${max}.`);
+          }
+        }
+        if (!Number.isInteger(values.seed)) throw new Error('Random seed must be a whole number.');
+        return values;
+      }
+
+      function updateLabels() {
+        for (const [key, formatter] of Object.entries(labels)) {
+          document.getElementById(`${key}Value`).textContent = formatter(controls[key].value);
+        }
+      }
+
+      function makePoint(x, y, settings) {
+        const hue = (settings.hue + (state.random() * 2 - 1) * settings.variation + 360) % 360;
+        const angle = state.random() * Math.PI * 2;
+        const baseSpeed = Number(settings.speed) * 0.32;
+        const magnitude = settings.constantSpeed ? baseSpeed : baseSpeed * (0.55 + state.random() * 0.9);
+        const velocity = {
+          x: Math.cos(angle) * magnitude,
+          y: Math.sin(angle) * magnitude
+        };
+        return {
+          x, y,
+          vx: velocity.x,
+          vy: velocity.y,
+          hue,
+          lightness: 27 + settings.intensity * 0.38
+        };
+      }
+
+      function resizeCanvas() {
+        const bounds = canvas.getBoundingClientRect();
+        state.width = Math.max(1, bounds.width);
+        state.height = Math.max(1, bounds.height);
+        state.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(state.width * state.pixelRatio);
+        canvas.height = Math.round(state.height * state.pixelRatio);
+        context.setTransform(state.pixelRatio, 0, 0, state.pixelRatio, 0, 0);
+        restart();
+      }
+
+      function restart() {
+        const settings = readSettings();
+        state.settings = settings;
+        state.random = randomFromSeed(settings.seed);
+        const centerX = state.width / 2;
+        const centerY = state.height / 2;
+        const spread = settings.centerStart && !settings.blackHole ? Math.min(state.width, state.height) * 0.025 : 0;
+        state.points = [];
+        for (let index = 0; index < settings.pointCount; index++) {
+          const pair = settings.symmetric ? Math.floor(index / 2) : index;
+          const angle = state.random() * Math.PI * 2;
+          const distance = spread * Math.sqrt(state.random());
+          const side = settings.symmetric && index % 2 ? -1 : 1;
+          const point = makePoint(
+            settings.centerStart && !settings.blackHole ? centerX + Math.cos(angle) * distance * side : state.random() * state.width,
+            settings.centerStart && !settings.blackHole ? centerY + Math.sin(angle) * distance : state.random() * state.height,
+            settings
+          );
+          if (settings.blackHole) aimAtBlackHole(point, settings);
+          if (settings.symmetric && index % 2) {
+            const source = state.points[pair];
+            point.x = state.width - source.x;
+            point.y = source.y;
+            point.vx = -source.vx;
+            point.vy = source.vy;
+          }
+          state.points.push(point);
+        }
+        context.fillStyle = '#090e12';
+        context.fillRect(0, 0, state.width, state.height);
+        updateLabels();
+        if (!state.frame) animate(0);
+      }
+
+      function drawFrame(delta, timestamp) {
+        const settings = state.settings;
+        const step = Math.min(delta / 16.67, 2.5);
+        const fade = 0.34 - settings.trails / 100 * 0.31;
+        context.fillStyle = `rgba(9, 14, 18, ${fade})`;
+        context.fillRect(0, 0, state.width, state.height);
+        const range = settings.linkRange;
+        const rangeSquared = range * range;
+        const holeRadius = Math.max(12, Math.min(24, Math.min(state.width, state.height) * 0.045));
+        for (let index = 0; index < state.points.length; index++) {
+          let point = state.points[index];
+          if (settings.blackHole) {
+            const distance = Math.hypot(state.width / 2 - point.x, state.height / 2 - point.y);
+            if (distance <= holeRadius) {
+              state.points[index] = respawnAtCanvasEdge(settings);
+              continue;
+            }
+            aimAtBlackHole(point, settings);
+          }
+          const previousX = point.x;
+          const previousY = point.y;
+          point.x += point.vx * step;
+          point.y += point.vy * step;
+          if (settings.blackHole) {
+            const moveX = point.x - previousX;
+            const moveY = point.y - previousY;
+            const moveLengthSquared = moveX * moveX + moveY * moveY;
+            const centerX = state.width / 2;
+            const centerY = state.height / 2;
+            const closest = moveLengthSquared
+              ? Math.max(0, Math.min(1, ((centerX - previousX) * moveX + (centerY - previousY) * moveY) / moveLengthSquared))
+              : 0;
+            const nearestX = previousX + moveX * closest;
+            const nearestY = previousY + moveY * closest;
+            if (Math.hypot(centerX - nearestX, centerY - nearestY) <= holeRadius) {
+              state.points[index] = respawnAtCanvasEdge(settings);
+            }
+          } else {
+            if (point.x < 0 || point.x > state.width) point.vx *= -1;
+            if (point.y < 0 || point.y > state.height) point.vy *= -1;
+            point.x = Math.max(0, Math.min(state.width, point.x));
+            point.y = Math.max(0, Math.min(state.height, point.y));
+          }
+        }
+
+        context.lineWidth = Math.max(0.7, settings.pointSize * 0.65);
+        for (let first = 0; first < state.points.length; first++) {
+          const point = state.points[first];
+          for (let second = first + 1; second < state.points.length; second++) {
+            const other = state.points[second];
+            const dx = point.x - other.x;
+            const dy = point.y - other.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared > rangeSquared) continue;
+            const alpha = (1 - Math.sqrt(distanceSquared) / range) * 0.7;
+            context.strokeStyle = `hsla(${(point.hue + other.hue) / 2}, 82%, ${Math.min(point.lightness, other.lightness)}%, ${alpha})`;
+            context.beginPath();
+            context.moveTo(point.x, point.y);
+            context.lineTo(other.x, other.y);
+            context.stroke();
+          }
+        }
+
+        for (const point of state.points) {
+          context.fillStyle = `hsl(${point.hue}, 84%, ${point.lightness}%)`;
+          context.beginPath();
+          context.arc(point.x, point.y, settings.pointSize, 0, Math.PI * 2);
+          context.fill();
+        }
+        if (settings.blackHole) drawBlackHole(settings, timestamp);
+      }
+
+      function aimAtBlackHole(point, settings) {
+        const dx = state.width / 2 - point.x;
+        const dy = state.height / 2 - point.y;
+        const distance = Math.hypot(dx, dy) || 1;
+        const inwardX = dx / distance;
+        const inwardY = dy / distance;
+        const swirl = 0.35 + Math.min(0.7, 18 / distance);
+        const magnitude = Number(settings.speed) * (0.35 + Math.min(1.35, 18 / distance));
+        point.vx = (inwardX - inwardY * swirl) * magnitude;
+        point.vy = (inwardY + inwardX * swirl) * magnitude;
+      }
+
+      function respawnAtCanvasEdge(settings) {
+        const side = Math.floor(state.random() * 4);
+        const point = makePoint(
+          side === 0 ? state.random() * state.width : side === 1 ? state.width : side === 2 ? state.random() * state.width : 0,
+          side === 0 ? 0 : side === 1 ? state.random() * state.height : side === 2 ? state.height : state.random() * state.height,
+          settings
+        );
+        aimAtBlackHole(point, settings);
+        return point;
+      }
+
+      function drawBlackHole(settings, timestamp) {
+        const centerX = state.width / 2;
+        const centerY = state.height / 2;
+        const radius = Math.max(12, Math.min(24, Math.min(state.width, state.height) * 0.045));
+        const glowRadius = radius * 5;
+        const glow = context.createRadialGradient(centerX, centerY, radius * 0.6, centerX, centerY, glowRadius);
+        glow.addColorStop(0, `hsla(${settings.hue}, 100%, 72%, 0.24)`);
+        glow.addColorStop(0.22, 'rgba(255, 119, 48, 0.13)');
+        glow.addColorStop(1, 'rgba(15, 36, 51, 0)');
+        context.fillStyle = glow;
+        context.fillRect(centerX - glowRadius, centerY - glowRadius, glowRadius * 2, glowRadius * 2);
+
+        context.save();
+        context.translate(centerX, centerY);
+        context.rotate(timestamp * 0.00018);
+        context.scale(1, 0.38);
+        const disk = context.createLinearGradient(-radius * 4, 0, radius * 4, 0);
+        disk.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        disk.addColorStop(0.35, 'rgba(255, 105, 35, 0.4)');
+        disk.addColorStop(0.48, `hsla(${settings.hue}, 100%, 82%, 0.95)`);
+        disk.addColorStop(0.55, 'rgba(255, 216, 145, 0.9)');
+        disk.addColorStop(0.7, 'rgba(255, 103, 37, 0.55)');
+        disk.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        context.strokeStyle = disk;
+        context.lineWidth = Math.max(5, radius * 0.42);
+        context.beginPath();
+        context.ellipse(0, 0, radius * 3.5, radius * 1.8, 0, 0, Math.PI * 2);
+        context.stroke();
+        context.strokeStyle = 'rgba(255, 220, 166, 0.72)';
+        context.lineWidth = Math.max(1, radius * 0.08);
+        context.beginPath();
+        context.ellipse(0, 0, radius * 2.45, radius * 1.25, 0, 0, Math.PI * 2);
+        context.stroke();
+        context.restore();
+
+        context.save();
+        context.shadowColor = 'rgba(0, 0, 0, 0.95)';
+        context.shadowBlur = radius * 1.4;
+        context.fillStyle = '#010204';
+        context.beginPath();
+        context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+        context.strokeStyle = 'rgba(214, 240, 255, 0.7)';
+        context.lineWidth = Math.max(1, radius * 0.08);
+        context.beginPath();
+        context.arc(centerX, centerY, radius * 1.16, 0, Math.PI * 2);
+        context.stroke();
+      }
+
+      function animate(timestamp) {
+        if (!state.running) {
+          state.frame = 0;
+          return;
+        }
+        const delta = state.lastFrame ? timestamp - state.lastFrame : 16.67;
+        state.lastFrame = timestamp;
+        drawFrame(delta, timestamp);
+        state.frame = requestAnimationFrame(animate);
+      }
+
+      function createSettingsUrl() {
+        const settings = readSettings();
+        const params = new URLSearchParams();
+        for (const [key, value] of Object.entries(settings)) {
+          params.set(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
+        }
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        url.hash = '';
+        return url.toString();
+      }
+
+      function restoreSettings() {
+        const params = new URLSearchParams(window.location.search);
+        const invalid = [];
+        if (!params.size) return invalid;
+        const numeric = ['pointCount', 'linkRange', 'pointSize', 'speed', 'trails', 'hue', 'variation', 'intensity', 'seed'];
+        const limits = {
+          pointCount: [10, 180], linkRange: [25, 240], pointSize: [0, 5], speed: [1, 12],
+          trails: [0, 100], hue: [0, 360], variation: [0, 180], intensity: [20, 100], seed: [0, 999999]
+        };
+        for (const key of numeric) {
+          if (!params.has(key)) continue;
+          const value = Number(params.get(key));
+          const [min, max] = limits[key];
+          const step = Number(controls[key].step) || 1;
+          const onStep = Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-8;
+          if (Number.isFinite(value) && value >= min && value <= max && (key !== 'seed' || Number.isInteger(value)) && onStep) {
+            controls[key].value = String(value);
+          } else invalid.push(key);
+        }
+        for (const key of ['centerStart', 'symmetric', 'constantSpeed']) {
+          if (!params.has(key)) continue;
+          const value = params.get(key);
+          if (value === '1' || value === '0') controls[key].checked = value === '1';
+          else invalid.push(key);
+        }
+        const holeSettingKey = params.has('blackHole') ? 'blackHole' : 'starCollapse';
+        if (params.has(holeSettingKey)) {
+          const value = params.get(holeSettingKey);
+          if (value === '1' || value === '0') controls.blackHole.checked = value === '1';
+          else invalid.push(holeSettingKey);
+        }
+        return invalid;
+      }
+
+      async function copySettingsLink() {
+        let url;
+        try {
+          url = createSettingsUrl();
+        } catch (error) {
+          setStatus(error.message, 'error');
+          return;
+        }
+        shareLink.value = url;
+        shareField.hidden = false;
+        shareLink.select();
+        try {
+          await navigator.clipboard.writeText(url);
+          setStatus('Settings link copied. You can also use it to create a QR code.', 'success');
+        } catch (error) {
+          setStatus(`The link is ready below, but could not be copied automatically: ${error.message}`, 'error');
+        }
+      }
+
+      function applyPreset(preset) {
+        const values = preset.values;
+        const presetKeys = ['pointCount', 'linkRange', 'pointSize', 'speed', 'trails', 'hue', 'variation', 'intensity',
+          'centerStart', 'symmetric', 'constantSpeed'];
+        values.forEach((value, index) => {
+          const key = presetKeys[index];
+          if (controls[key].type === 'checkbox') controls[key].checked = value;
+          else controls[key].value = String(value);
+        });
+        controls.blackHole.checked = Boolean(preset.blackHole);
+        controls.seed.value = String(Math.floor(Math.random() * 1000000));
+        updateLabels();
+        restart();
+        setStatus(`${preset.name} mesh ready.`, 'success');
+      }
+
+      for (const preset of presets) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = preset.name;
+        button.addEventListener('click', () => applyPreset(preset));
+        document.getElementById('presets').appendChild(button);
+      }
+
+      for (const input of Object.values(controls)) {
+        input.addEventListener(input.type === 'range' ? 'input' : 'change', () => {
+          if (input === controls.seed) {
+            try { restart(); setStatus('Mesh regenerated from seed.', 'success'); }
+            catch (error) { setStatus(error.message, 'error'); }
+            return;
+          }
+          try {
+            updateLabels();
+            restart();
+            setStatus('Mesh settings updated.', 'success');
+          } catch (error) {
+            setStatus(error.message, 'error');
+          }
+        });
+      }
+
+      document.getElementById('randomize').addEventListener('click', () => {
+        applyPreset({
+          name: 'Random',
+          values: [
+            25 + Math.floor(Math.random() * 135),
+            55 + Math.floor(Math.random() * 150),
+            Math.floor(Math.random() * 9) / 2,
+            1 + Math.floor(Math.random() * 10),
+            Math.floor(Math.random() * 101),
+            Math.floor(Math.random() * 361),
+            Math.floor(Math.random() * 111),
+            35 + Math.floor(Math.random() * 66),
+            Math.random() > 0.55,
+            Math.random() > 0.7,
+            Math.random() > 0.3
+          ],
+          blackHole: Math.random() > 0.9
+        });
+      });
+      document.getElementById('restart').addEventListener('click', () => {
+        try { restart(); setStatus('Mesh restarted from seed.', 'success'); }
+        catch (error) { setStatus(error.message, 'error'); }
+      });
+      document.getElementById('share').addEventListener('click', copySettingsLink);
+      document.getElementById('toggleSettings').addEventListener('click', event => {
+        const collapsed = document.body.classList.toggle('settings-collapsed');
+        event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+        event.currentTarget.setAttribute('aria-label', collapsed ? 'Show settings' : 'Hide settings');
+        event.currentTarget.title = collapsed ? 'Show settings' : 'Hide settings';
+        event.currentTarget.textContent = collapsed ? '›' : '‹';
+        requestAnimationFrame(resizeCanvas);
+      });
+      window.addEventListener('resize', () => {
+        try {
+          resizeCanvas();
+        } catch (error) {
+          setStatus(error.message, 'error');
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          state.running = false;
+          if (state.frame) cancelAnimationFrame(state.frame);
+          state.frame = 0;
+          state.lastFrame = 0;
+        } else {
+          state.running = true;
+          if (!state.frame) animate(0);
+        }
+      });
+
+      controls.seed.value = String(Math.floor(Math.random() * 1000000));
+      const invalidLinkSettings = restoreSettings();
+      updateLabels();
+      resizeCanvas();
+      if (invalidLinkSettings.length) {
+        setStatus(`Invalid link settings ignored: ${invalidLinkSettings.join(', ')}.`, 'error');
+      } else if (new URLSearchParams(window.location.search).size) {
+        setStatus('Settings restored from link.', 'success');
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1427 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1014">
+  <meta name="description" content="Generate square, circular, hexagonal, and triangular mazes with print-ready PNG export.">
+  <title>Maze Generator · Ahraman</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      min-width: 320px;
+      height: 100vh;
+      height: 100dvh;
+      display: grid;
+      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      overflow: hidden;
+      background: var(--app-bg);
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .sidebar {
+      z-index: 1;
+      display: flex;
+      min-height: 0;
+      height: 100vh;
+      flex-direction: column;
+      gap: 16px;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding: 20px 16px;
+      border-right: 1px solid var(--border);
+      box-shadow: 12px 0 32px rgb(0 0 0 / 12%);
+    }
+
+    .sidebar-content { display: flex; flex: 0 0 auto; flex-direction: column; gap: 22px; }
+    .sidebar-toggle {
+      display: grid;
+      width: 40px;
+      min-height: 40px;
+      flex: 0 0 auto;
+      align-self: flex-end;
+      place-items: center;
+      padding: 0;
+      color: var(--accent);
+      font-size: 1.2rem;
+    }
+    .settings-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+    .settings-collapsed .sidebar { align-items: center; padding: 12px 8px; }
+    .settings-collapsed .sidebar-content { display: none; }
+    .settings-collapsed .sidebar-toggle { align-self: center; }
+    .brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      border: 1px solid rgb(115 229 196 / 35%);
+      border-radius: 13px;
+      color: var(--accent);
+      background: rgb(115 229 196 / 9%);
+      font-size: 23px;
+    }
+    h1 { margin: 14px 0 5px; font-size: 1.55rem; letter-spacing: -0.04em; }
+    .intro, .credit, .hint { color: var(--text-muted); font-size: 0.84rem; line-height: 1.55; }
+    .intro { margin: 0; }
+    .controls { display: grid; gap: 15px; }
+    .field { display: grid; gap: 8px; }
+    .field > label, .field-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: #dce8e3;
+      font-size: 0.86rem;
+      font-weight: 600;
+    }
+    .value { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .resolution-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    [hidden] { display: none !important; }
+    .check-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; }
+    input[type="checkbox"] { width: 17px; height: 17px; margin: 0; }
+    input[type="number"] { width: 100%; }
+    .controls input[type="range"] { width: 100%; }
+    .status { min-height: 1.4em; margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.4; }
+    .status[data-state="error"] { color: #ff9a9a; }
+    .status[data-state="success"] { color: var(--accent); }
+    .credit { margin: auto 0 0; padding-top: 20px; border-top: 1px solid var(--border); }
+    .button-stack { display: grid; gap: 10px; }
+    .stage {
+      display: grid;
+      min-width: 0;
+      min-height: 0;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      place-items: start center;
+      padding: 24px;
+      background-color: #111922;
+      background-image: radial-gradient(#344351 0.7px, transparent 0.7px);
+      background-size: 22px 22px;
+    }
+    canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100dvh - 48px); }
+
+    @media (max-width: 720px) {
+      body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 42vh); }
+      .sidebar {
+        grid-row: 2;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        align-items: start;
+        height: 42vh;
+        max-height: 42vh;
+        gap: 10px;
+        padding: 16px 20px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .stage { grid-row: 1; }
+      .sidebar-content { min-height: 0; gap: 14px; }
+      .sidebar-toggle { align-self: flex-end; }
+      .settings-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 56px; }
+      .settings-collapsed .sidebar {
+        grid-row: 2;
+        display: flex;
+        height: 56px;
+        max-height: 56px;
+        flex-direction: row;
+        align-items: center;
+        padding: 8px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .settings-collapsed .sidebar-toggle { align-self: center; }
+      .brand-mark { display: none; }
+      h1 { margin-top: 0; }
+      .intro { margin-bottom: 0; }
+      .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      .button-stack, .status { grid-column: 1 / -1; }
+      .button-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .credit { display: none; }
+      .stage { min-height: 0; height: auto; padding: 16px; }
+      body:not(.settings-collapsed) canvas { max-height: calc(58vh - 32px); }
+      .settings-collapsed .stage { grid-column: 1; grid-row: 1; height: auto; }
+      .settings-collapsed canvas { max-height: calc(100dvh - 88px); }
+    }
+    @media (max-width: 420px) {
+      .controls, .button-stack { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar app-control-panel" aria-label="Maze generator settings">
+    <button class="sidebar-toggle" id="toggleSettings" type="button" aria-label="Hide settings" aria-expanded="true" title="Hide settings">‹</button>
+    <div class="sidebar-content">
+      <header>
+        <div class="brand-mark" aria-hidden="true">⌘</div>
+        <h1>Maze Generator</h1>
+        <p class="intro">Customize a maze, reveal its solution, and save a print-ready image.</p>
+      </header>
+      <section class="controls" aria-label="Maze settings">
+        <div class="field">
+          <label for="pageSize">Page size</label>
+          <select id="pageSize">
+            <option value="A4">A4 · 300 DPI</option>
+            <option value="A5" selected>A5 · 300 DPI</option>
+            <option value="FHD">FHD · 1080p</option>
+            <option value="4K">4K · UHD</option>
+            <option value="custom">Custom size</option>
+          </select>
+        </div>
+        <div class="resolution-fields" id="customSizeFields" hidden>
+          <div class="field">
+            <label for="customWidth">Width · px</label>
+            <input id="customWidth" type="number" min="64" max="8192" step="1" value="1920">
+          </div>
+          <div class="field">
+            <label for="customHeight">Height · px</label>
+            <input id="customHeight" type="number" min="64" max="8192" step="1" value="1080">
+          </div>
+        </div>
+        <p class="hint" id="dimensions" aria-live="polite"></p>
+        <div class="field">
+          <label for="shape">Maze shape</label>
+          <select id="shape">
+            <option value="triangular">Triangular</option>
+            <option value="square" selected>Square</option>
+            <option value="hexagonal">Hexagonal</option>
+            <option value="circular">Circular</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="density">Density <span class="value" id="densityValue"></span></label>
+          <input id="density" type="range" min="1" max="10" value="8">
+        </div>
+        <div class="field" id="doublingField" hidden>
+          <label for="doubling">Sector doubling <span class="value" id="doublingValue"></span></label>
+          <input id="doubling" type="range" min="1" max="8" value="3">
+        </div>
+        <div class="field" id="circularLayersField" hidden>
+          <label for="circularLayers">Number of layers</label>
+          <input id="circularLayers" type="number" min="4" max="24" step="1" value="19">
+        </div>
+        <div class="field" id="circularCenterField" hidden>
+          <label for="circularCenterSize">Center radius · ring cells</label>
+          <input id="circularCenterSize" type="number" min="1" max="8" step="1" value="2">
+        </div>
+        <label class="check-row" id="emptyCenterToggle" for="emptyCenter">
+          <input id="emptyCenter" type="checkbox" checked>
+          Empty center
+        </label>
+        <div class="resolution-fields" id="squareCenterFields" hidden>
+          <div class="field">
+            <label for="squareCenterWidth">Center width · tiles</label>
+            <input id="squareCenterWidth" type="number" min="1" max="100" step="1" value="8">
+          </div>
+          <div class="field">
+            <label for="squareCenterHeight">Center height · tiles</label>
+            <input id="squareCenterHeight" type="number" min="1" max="100" step="1" value="16">
+          </div>
+        </div>
+        <div class="field" id="hexCenterField" hidden>
+          <label for="hexCenterSize">Center radius · hex tiles</label>
+          <input id="hexCenterSize" type="number" min="1" max="100" step="1" value="2">
+        </div>
+        <div class="field" id="centerAccessField" hidden>
+          <label for="centerAccess">Center access</label>
+          <select id="centerAccess">
+            <option value="0">No access</option>
+            <option value="1" selected>Single entry</option>
+            <option value="2">Two entries</option>
+            <option value="3">Three entries</option>
+            <option value="4">Four entries</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="wallThickness">Wall thickness <span class="value" id="thicknessValue"></span></label>
+          <input id="wallThickness" type="number" min="1" max="16" step="1" value="6">
+        </div>
+        <div class="field">
+          <label for="algorithm">Algorithm</label>
+          <select id="algorithm">
+            <option value="backtracker">Recursive Backtracker</option>
+            <option value="hunt">Hunt and Kill</option>
+            <option value="prim">Prim</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="startChoice">Start point</label>
+          <select id="startChoice">
+            <option value="corner">Corner</option>
+            <option value="center" selected>Center</option>
+            <option value="random">Random</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="endChoice">End point</label>
+          <select id="endChoice">
+            <option value="center">Center</option>
+            <option value="opposite">Opposite / outer edge</option>
+            <option value="farthest">Farthest from start</option>
+            <option value="farthest-edge" selected>Farthest from start on the edge</option>
+            <option value="random">Random</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="seed">Random seed</label>
+          <input id="seed" type="number" min="0" max="999999" step="1">
+        </div>
+        <label class="check-row" for="showSolution">
+          <input id="showSolution" type="checkbox">
+          Show solution
+        </label>
+        <div class="button-stack">
+          <button id="randomize" type="button">Randomize</button>
+          <button class="primary" id="generate" type="button">Generate maze</button>
+          <button id="savePNG" type="button">Save print-ready PNG</button>
+          <button id="shareSettings" type="button">Copy settings link</button>
+        </div>
+        <div class="field" id="settingsLinkField" hidden>
+          <label for="settingsLink">Settings link · paste into a QR code generator</label>
+          <input id="settingsLink" type="url" readonly>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </section>
+      <p class="credit"><a href="index.html">← All patterns</a><br>Maze generator · Ahraman Design</p>
+    </div>
+  </aside>
+  <main class="stage" aria-label="Maze preview">
+    <canvas id="mazeCanvas" aria-label="Generated maze"></canvas>
+  </main>
+  <script>
+    (() => {
+      const canvas = document.getElementById('mazeCanvas');
+      const context = canvas.getContext('2d');
+      const pageSize = document.getElementById('pageSize');
+      const customSizeFields = document.getElementById('customSizeFields');
+      const widthInput = document.getElementById('customWidth');
+      const heightInput = document.getElementById('customHeight');
+      const dimensionsText = document.getElementById('dimensions');
+      const shapeInput = document.getElementById('shape');
+      const densityInput = document.getElementById('density');
+      const densityValue = document.getElementById('densityValue');
+      const doublingInput = document.getElementById('doubling');
+      const doublingField = document.getElementById('doublingField');
+      const doublingValue = document.getElementById('doublingValue');
+      const circularLayersField = document.getElementById('circularLayersField');
+      const circularLayersInput = document.getElementById('circularLayers');
+      const circularCenterField = document.getElementById('circularCenterField');
+      const circularCenterSizeInput = document.getElementById('circularCenterSize');
+      const emptyCenterInput = document.getElementById('emptyCenter');
+      const emptyCenterToggle = document.getElementById('emptyCenterToggle');
+      const squareCenterFields = document.getElementById('squareCenterFields');
+      const squareCenterWidthInput = document.getElementById('squareCenterWidth');
+      const squareCenterHeightInput = document.getElementById('squareCenterHeight');
+      const hexCenterField = document.getElementById('hexCenterField');
+      const hexCenterSizeInput = document.getElementById('hexCenterSize');
+      const centerAccessField = document.getElementById('centerAccessField');
+      const centerAccessInput = document.getElementById('centerAccess');
+      const thicknessInput = document.getElementById('wallThickness');
+      const thicknessValue = document.getElementById('thicknessValue');
+      const algorithmInput = document.getElementById('algorithm');
+      const startInput = document.getElementById('startChoice');
+      const endInput = document.getElementById('endChoice');
+      const seedInput = document.getElementById('seed');
+      seedInput.value = String(Math.floor(Math.random() * 1000000));
+      const solutionInput = document.getElementById('showSolution');
+      const settingsLinkField = document.getElementById('settingsLinkField');
+      const settingsLinkInput = document.getElementById('settingsLink');
+      const status = document.getElementById('status');
+      const presets = {
+        A4: { width: 2480, height: 3508 },
+        A5: { width: 1748, height: 2480 },
+        FHD: { width: 1920, height: 1080 },
+        '4K': { width: 3840, height: 2160 }
+      };
+      const maxPixels = 33554432;
+      const squareDirections = [
+        { x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }
+      ];
+      const hexDirections = [[0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1], [1, 0]];
+      let maze = null;
+      let renderFrame = 0;
+
+      function setStatus(message, state = '') {
+        status.textContent = message;
+        status.dataset.state = state;
+      }
+
+      function readDimensions() {
+        let { width, height } = presets[pageSize.value] || {};
+        if (pageSize.value === 'custom') {
+          width = Number(widthInput.value);
+          height = Number(heightInput.value);
+          if (!Number.isInteger(width) || width < 64 || width > 8192 ||
+              !Number.isInteger(height) || height < 64 || height > 8192) {
+            throw new Error('Custom width and height must be whole numbers from 64 to 8192 px.');
+          }
+        }
+        if (!width || !height) throw new Error('Choose a valid page size.');
+        if (width * height > maxPixels) throw new Error('The page is too large. Maximum area is 33.5 megapixels.');
+        dimensionsText.textContent = `${width.toLocaleString()} × ${height.toLocaleString()} px`;
+        return { width, height };
+      }
+
+      function getSettingsFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const invalid = [];
+        if (!params.toString()) return invalid;
+
+        const selectValues = [
+          ['shape', shapeInput],
+          ['page', pageSize],
+          ['algorithm', algorithmInput],
+          ['start', startInput],
+          ['end', endInput],
+          ['access', centerAccessInput]
+        ];
+        for (const [key, input] of selectValues) {
+          if (!params.has(key)) continue;
+          const value = params.get(key);
+          if ([...input.options].some(option => option.value === value)) input.value = value;
+          else invalid.push(key);
+        }
+
+        const numericValues = [
+          ['width', widthInput, 64, 8192],
+          ['height', heightInput, 64, 8192],
+          ['density', densityInput, 1, 10],
+          ['doubling', doublingInput, 1, 8],
+          ['layers', circularLayersInput, 4, 24],
+          ['circleCenter', circularCenterSizeInput, 1, 8],
+          ['squareCenterWidth', squareCenterWidthInput, 1, 100],
+          ['squareCenterHeight', squareCenterHeightInput, 1, 100],
+          ['hexCenter', hexCenterSizeInput, 1, 100],
+          ['thickness', thicknessInput, 1, 16],
+          ['seed', seedInput, 0, 999999]
+        ];
+        for (const [key, input, min, max] of numericValues) {
+          if (!params.has(key)) continue;
+          const value = Number(params.get(key));
+          if (Number.isInteger(value) && value >= min && value <= max) input.value = value;
+          else invalid.push(key);
+        }
+
+        const booleanValues = [
+          ['emptyCenter', emptyCenterInput],
+          ['solution', solutionInput]
+        ];
+        for (const [key, input] of booleanValues) {
+          if (!params.has(key)) continue;
+          const value = params.get(key);
+          if (value === '1' || value === '0') input.checked = value === '1';
+          else invalid.push(key);
+        }
+        return invalid;
+      }
+
+      function createSettingsUrl() {
+        const params = new URLSearchParams({
+          shape: shapeInput.value,
+          page: pageSize.value,
+          width: widthInput.value,
+          height: heightInput.value,
+          density: densityInput.value,
+          doubling: doublingInput.value,
+          layers: circularLayersInput.value,
+          circleCenter: circularCenterSizeInput.value,
+          emptyCenter: emptyCenterInput.checked ? '1' : '0',
+          squareCenterWidth: squareCenterWidthInput.value,
+          squareCenterHeight: squareCenterHeightInput.value,
+          hexCenter: hexCenterSizeInput.value,
+          access: centerAccessInput.value,
+          thickness: thicknessInput.value,
+          algorithm: algorithmInput.value,
+          start: startInput.value,
+          end: endInput.value,
+          seed: seedInput.value,
+          solution: solutionInput.checked ? '1' : '0'
+        });
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        url.hash = '';
+        return url.toString();
+      }
+
+      function randomGenerator(seed) {
+        let state = seed >>> 0;
+        return () => {
+          state += 0x6D2B79F5;
+          let value = state;
+          value = Math.imul(value ^ (value >>> 15), value | 1);
+          value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+          return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function connect(a, b) {
+        a.neighbors.push(b);
+        b.neighbors.push(a);
+      }
+
+      function makeSquareGrid(width, height, density, centerWidth, centerHeight, centerAccess, random) {
+        const cellSize = Math.round(100 - (density - 1) * (76 / 9));
+        const columns = Math.max(2, Math.floor(width / cellSize));
+        const rows = Math.max(2, Math.floor(height / cellSize));
+        const hasCenter = centerWidth > 0 && centerHeight > 0;
+        if (hasCenter && (centerWidth > columns - 2 || centerHeight > rows - 2)) {
+          throw new Error(`The empty center must leave at least one maze tile on every side (${columns - 2} × ${rows - 2} tiles maximum).`);
+        }
+        const centerArea = hasCenter ? {
+          x: Math.floor((columns - centerWidth) / 2),
+          y: Math.floor((rows - centerHeight) / 2),
+          width: centerWidth,
+          height: centerHeight
+        } : null;
+        const nodes = [];
+        const grid = Array.from({ length: rows }, (_, y) =>
+          Array.from({ length: columns }, (_, x) => {
+            if (centerArea && x >= centerArea.x && x < centerArea.x + centerArea.width &&
+                y >= centerArea.y && y < centerArea.y + centerArea.height) return null;
+            const node = { id: nodes.length, x, y, ring: 0, sector: 0, neighbors: [], links: new Set() };
+            nodes.push(node);
+            return node;
+          })
+        );
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < columns; x++) {
+            const node = grid[y][x];
+            if (!node) continue;
+            if (x + 1 < columns && grid[y][x + 1]) connect(node, grid[y][x + 1]);
+            if (y + 1 < rows && grid[y + 1][x]) connect(node, grid[y + 1][x]);
+          }
+        }
+        const model = { kind: 'square', nodes, grid, columns, rows, cellSize, width, height, centerArea, centerAccess };
+        if (centerArea && centerAccess > 0) {
+          const openings = [];
+          for (const node of nodes) {
+            const sides = [
+              ['top', 0, -1], ['right', 1, 0], ['bottom', 0, 1], ['left', -1, 0]
+            ];
+            for (const [side, dx, dy] of sides) {
+              const x = node.x + dx;
+              const y = node.y + dy;
+              if (x >= centerArea.x && x < centerArea.x + centerArea.width &&
+                  y >= centerArea.y && y < centerArea.y + centerArea.height) {
+                openings.push({ node, side });
+              }
+            }
+          }
+          model.centerOpenings = chooseCenterOpenings(openings, centerAccess, random);
+          model.centerNode = {
+            id: nodes.length,
+            x: centerArea.x + centerArea.width / 2 - 0.5,
+            y: centerArea.y + centerArea.height / 2 - 0.5,
+            neighbors: [],
+            links: new Set(),
+            isCenterRoom: true
+          };
+          nodes.push(model.centerNode);
+          model.centerOpenings.forEach(({ node }) => {
+            if (!node.links.has(model.centerNode.id)) connect(node, model.centerNode);
+          });
+        }
+        return model;
+      }
+
+      function makeCircularGrid(width, height, density, doublingSteps, centerSize, centerAccess, layers, random) {
+        const rings = layers + 1;
+        const baseSectors = 6 + (density - 1) * 3;
+        const groupCount = Math.max(1, doublingSteps);
+        const groupSize = Math.ceil(rings / groupCount);
+        const counts = Array.from({ length: rings }, (_, ring) => {
+          if (ring === 0) return 1;
+          const group = Math.min(Math.floor(ring / groupSize), groupCount - 1);
+          return baseSectors * 2 ** group;
+        });
+        const nodes = [];
+        const grid = counts.map((count, ring) =>
+          Array.from({ length: count }, (_, sector) => {
+            const node = { id: ring === 0 && centerAccess === 0 ? -1 : nodes.length, ring, sector, neighbors: [], links: new Set() };
+            if (ring > 0 || centerAccess > 0) nodes.push(node);
+            return node;
+          })
+        );
+        const center = grid[0][0];
+        const model = {
+          kind: 'circular',
+          nodes,
+          grid,
+          counts,
+          rings,
+          layers,
+          width,
+          height,
+          centerSize,
+          centerAccess,
+          centerNode: centerAccess > 0 ? center : null
+        };
+        if (centerAccess > 0) {
+          model.centerOpenings = chooseCenterOpenings(grid[1], centerAccess, random);
+          model.centerOpenings.forEach(node => connect(center, node));
+        }
+
+        for (let ring = 1; ring < rings; ring++) {
+          const count = counts[ring];
+          for (let sector = 0; sector < count; sector++) {
+            connect(grid[ring][sector], grid[ring][(sector + 1) % count]);
+            if (ring + 1 < rings) {
+              const nextCount = counts[ring + 1];
+              const nextStart = Math.floor(sector * nextCount / count);
+              const nextEnd = Math.floor((sector + 1) * nextCount / count - 1e-6);
+              for (let nextSector = nextStart; nextSector <= nextEnd; nextSector++) {
+                connect(grid[ring][sector], grid[ring + 1][nextSector % nextCount]);
+              }
+            }
+          }
+        }
+        return model;
+      }
+
+      function makeTriangularGrid(width, height, density) {
+        const divisions = 6 + density * 3;
+        const nodes = [];
+        const edges = new Map();
+        const addTriangle = vertices => {
+          const node = { id: nodes.length, vertices, edges: [], neighbors: [], links: new Set() };
+          nodes.push(node);
+          for (let index = 0; index < 3; index++) {
+            const first = vertices[index];
+            const second = vertices[(index + 1) % 3];
+            const points = [first, second].sort((a, b) => a.i - b.i || a.j - b.j);
+            const key = points.map(point => `${point.i},${point.j}`).join('|');
+            let edge = edges.get(key);
+            if (!edge) {
+              edge = { vertices: points, nodes: [] };
+              edges.set(key, edge);
+            }
+            edge.nodes.push(node);
+            node.edges.push(edge);
+          }
+        };
+
+        for (let i = 0; i < divisions; i++) {
+          for (let j = 0; i + j < divisions; j++) {
+            addTriangle([{ i, j }, { i: i + 1, j }, { i, j: j + 1 }]);
+            if (i + j < divisions - 1) {
+              addTriangle([{ i: i + 1, j }, { i: i + 1, j: j + 1 }, { i, j: j + 1 }]);
+            }
+          }
+        }
+
+        for (const edge of edges.values()) {
+          if (edge.nodes.length === 2) connect(edge.nodes[0], edge.nodes[1]);
+        }
+        const sideLength = Math.min(
+          (width - 40) / divisions,
+          (height - 40) / (divisions * Math.sqrt(3) / 2)
+        );
+        return { kind: 'triangular', nodes, edges: [...edges.values()], divisions, sideLength, width, height };
+      }
+
+      function makeHexagonalGrid(width, height, density, centerSize, centerAccess, random) {
+        const radius = 3 + density * 2;
+        const nodes = [];
+        const coordinates = new Map();
+        const centerEnabled = centerSize > 0;
+        if (centerEnabled && centerSize >= radius) {
+          throw new Error(`The hexagonal center radius must be smaller than the outer radius (${radius} tiles).`);
+        }
+        for (let q = -radius; q <= radius; q++) {
+          const minR = Math.max(-radius, -radius - q);
+          const maxR = Math.min(radius, radius - q);
+          for (let r = minR; r <= maxR; r++) {
+            if (centerEnabled && Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r)) < centerSize) continue;
+            const node = { id: nodes.length, q, r, neighbors: [], links: new Set() };
+            nodes.push(node);
+            coordinates.set(`${q},${r}`, node);
+          }
+        }
+        const model = { kind: 'hexagonal', nodes, coordinates, radius, width, height, centerSize, centerAccess };
+        for (const node of nodes) {
+          node.edgeNeighbors = hexDirections.map(([dq, dr]) => coordinates.get(`${node.q + dq},${node.r + dr}`) || null);
+          node.centerEdges = hexDirections.map(([dq, dr]) =>
+            centerEnabled && Math.max(Math.abs(node.q + dq), Math.abs(node.r + dr), Math.abs(node.q + node.r + dq + dr)) < centerSize
+          );
+          node.edgeNeighbors.forEach(neighbor => {
+            if (neighbor && node.id < neighbor.id) connect(node, neighbor);
+          });
+        }
+        if (centerEnabled && centerAccess > 0) {
+          const openings = [];
+          for (const node of nodes) {
+            node.centerEdges.forEach((isCenterEdge, edge) => {
+              if (isCenterEdge) openings.push({ node, edge });
+            });
+          }
+          model.centerOpenings = chooseCenterOpenings(openings, centerAccess, random);
+          model.centerNode = {
+            id: nodes.length,
+            q: 0,
+            r: 0,
+            neighbors: [],
+            links: new Set(),
+            isCenterRoom: true
+          };
+          nodes.push(model.centerNode);
+          model.centerOpenings.forEach(({ node }) => {
+            if (!node.links.has(model.centerNode.id)) connect(node, model.centerNode);
+          });
+        }
+        const cellSize = Math.min(
+          (width - 40) / (Math.sqrt(3) * (2 * radius + 1)),
+          (height - 40) / (3 * radius + 2)
+        );
+        model.cellSize = cellSize;
+        return model;
+      }
+
+      function chooseCenterOpenings(candidates, count, random) {
+        const available = shuffle([...candidates], random);
+        if (available.length < count) {
+          throw new Error(`The selected center can have at most ${available.length} openings.`);
+        }
+        return available.slice(0, count);
+      }
+
+      function shuffle(items, random) {
+        for (let i = items.length - 1; i > 0; i--) {
+          const j = Math.floor(random() * (i + 1));
+          [items[i], items[j]] = [items[j], items[i]];
+        }
+        return items;
+      }
+
+      function carveMaze(model, algorithm, random) {
+        const visited = new Set();
+        const first = model.nodes[Math.floor(random() * model.nodes.length)];
+        visited.add(first);
+        const carve = (a, b) => {
+          a.links.add(b.id);
+          b.links.add(a.id);
+          visited.add(b);
+        };
+
+        if (algorithm === 'prim') {
+          let frontier = first.neighbors.filter(node => !visited.has(node));
+          while (frontier.length) {
+            const index = Math.floor(random() * frontier.length);
+            const next = frontier.splice(index, 1)[0];
+            if (visited.has(next)) continue;
+            const parents = next.neighbors.filter(node => visited.has(node));
+            if (!parents.length) continue;
+            carve(parents[Math.floor(random() * parents.length)], next);
+            frontier.push(...next.neighbors.filter(node => !visited.has(node) && !frontier.includes(node)));
+          }
+          return;
+        }
+
+        if (algorithm === 'hunt') {
+          let current = first;
+          while (visited.size < model.nodes.length) {
+            const options = shuffle(current.neighbors.filter(node => !visited.has(node)), random);
+            if (options.length) {
+              const next = options[0];
+              carve(current, next);
+              current = next;
+              continue;
+            }
+            let found = false;
+            for (const candidate of shuffle(model.nodes.filter(node => !visited.has(node)), random)) {
+              const linkedNeighbors = candidate.neighbors.filter(node => visited.has(node));
+              if (!linkedNeighbors.length) continue;
+              carve(linkedNeighbors[Math.floor(random() * linkedNeighbors.length)], candidate);
+              current = candidate;
+              found = true;
+              break;
+            }
+            if (!found) throw new Error('Could not connect all maze cells.');
+          }
+          return;
+        }
+
+        const stack = [first];
+        while (stack.length) {
+          const current = stack[stack.length - 1];
+          const options = current.neighbors.filter(node => !visited.has(node));
+          if (!options.length) {
+            stack.pop();
+            continue;
+          }
+          const next = options[Math.floor(random() * options.length)];
+          carve(current, next);
+          stack.push(next);
+        }
+      }
+
+      function chooseStart(model, choice, random) {
+        if (choice === 'random') {
+          const candidates = model.kind === 'circular'
+            ? model.grid[model.rings - 1]
+            : model.kind === 'hexagonal' ? getHexBoundary(model)
+              : model.kind === 'triangular' ? getTriangleBoundary(model) : getSquareBoundary(model);
+          return candidates[Math.floor(random() * candidates.length)];
+        }
+        if (model.kind === 'circular') {
+          if (choice === 'center') return chooseCenterNode(model);
+          return model.grid[model.rings - 1][0];
+        }
+        if (model.kind === 'hexagonal') {
+          if (choice !== 'center') return model.coordinates.get(`${-model.radius},0`);
+          return chooseCenterNode(model);
+        }
+        if (model.kind === 'triangular') {
+          if (choice === 'center') return chooseCenterNode(model);
+          const candidates = getTriangleBoundary(model);
+          const target = { x: 0, y: 0 };
+          return candidates.reduce((closest, node) => {
+            const point = triangleNodeCoordinates(node);
+            const distance = Math.hypot(point.x - target.x, point.y - target.y);
+            const closestPoint = triangleNodeCoordinates(closest);
+            const closestDistance = Math.hypot(closestPoint.x - target.x, closestPoint.y - target.y);
+            return distance < closestDistance ? node : closest;
+          });
+        }
+        if (choice === 'center') {
+          return chooseCenterNode(model);
+        }
+        return model.grid[0][0];
+      }
+
+      function chooseCenterNode(model) {
+        if (model.centerNode) return model.centerNode;
+        if (model.kind === 'circular') return model.grid[1][0];
+        if (model.kind === 'hexagonal') {
+          return model.coordinates.get('0,0') || model.nodes.reduce((closest, node) => {
+            const distance = Math.max(Math.abs(node.q), Math.abs(node.r), Math.abs(node.q + node.r));
+            const closestDistance = Math.max(Math.abs(closest.q), Math.abs(closest.r), Math.abs(closest.q + closest.r));
+            return distance < closestDistance ? node : closest;
+          });
+        }
+        if (model.kind === 'triangular') {
+          const target = { x: model.divisions / 2, y: model.divisions * Math.sqrt(3) / 6 };
+          return model.nodes.reduce((closest, node) => {
+            const point = triangleNodeCoordinates(node);
+            const distance = Math.hypot(point.x - target.x, point.y - target.y);
+            const closestPoint = triangleNodeCoordinates(closest);
+            const closestDistance = Math.hypot(closestPoint.x - target.x, closestPoint.y - target.y);
+            return distance < closestDistance ? node : closest;
+          });
+        }
+        return model.grid[Math.floor(model.rows / 2)][Math.floor(model.columns / 2)] ||
+          model.nodes.reduce((closest, node) => {
+            const distance = Math.hypot(node.x - (model.columns - 1) / 2, node.y - (model.rows - 1) / 2);
+            const closestDistance = Math.hypot(closest.x - (model.columns - 1) / 2, closest.y - (model.rows - 1) / 2);
+            return distance < closestDistance ? node : closest;
+          });
+      }
+
+      function getDistances(start) {
+        const distance = new Map([[start.id, 0]]);
+        const previous = new Map([[start.id, null]]);
+        const queue = [start];
+        for (let index = 0; index < queue.length; index++) {
+          const node = queue[index];
+          for (const neighbor of node.neighbors) {
+            if (!node.links.has(neighbor.id) || distance.has(neighbor.id)) continue;
+            distance.set(neighbor.id, distance.get(node.id) + 1);
+            previous.set(neighbor.id, node.id);
+            queue.push(neighbor);
+          }
+        }
+        return { distance, previous };
+      }
+
+      function chooseEnd(model, start, choice, random, distances) {
+        if (choice === 'center') return chooseCenterNode(model);
+        const edgeNodes = model.kind === 'circular'
+          ? model.grid[model.rings - 1]
+          : model.kind === 'hexagonal' ? getHexBoundary(model)
+            : model.kind === 'triangular' ? getTriangleBoundary(model) : getSquareBoundary(model);
+        if (choice === 'random') {
+          const candidates = edgeNodes.filter(node => node !== start);
+          return candidates[Math.floor(random() * candidates.length)];
+        }
+        if (choice === 'farthest') {
+          return model.nodes.reduce((farthest, node) =>
+            distances.distance.get(node.id) > distances.distance.get(farthest.id) ? node : farthest
+          , start);
+        }
+        if (choice === 'farthest-edge') {
+          return edgeNodes.reduce((farthest, node) =>
+            distances.distance.get(node.id) > distances.distance.get(farthest.id) ? node : farthest
+          , edgeNodes[0]);
+        }
+        if (model.kind === 'circular') {
+          const outer = model.grid[model.rings - 1];
+          return outer.reduce((farthest, node) =>
+            distances.distance.get(node.id) > distances.distance.get(farthest.id) ? node : farthest
+          , outer[0]);
+        }
+        if (model.kind === 'hexagonal') {
+          const opposite = model.coordinates.get(`${model.radius},0`);
+          return opposite === start ? chooseEnd(model, start, 'farthest', random, distances) : opposite;
+        }
+        if (model.kind === 'triangular') {
+          const target = { x: model.divisions, y: 0 };
+          const opposite = getTriangleBoundary(model).reduce((closest, node) => {
+            const point = triangleNodeCoordinates(node);
+            const distance = Math.hypot(point.x - target.x, point.y - target.y);
+            const closestPoint = triangleNodeCoordinates(closest);
+            const closestDistance = Math.hypot(closestPoint.x - target.x, closestPoint.y - target.y);
+            return distance < closestDistance ? node : closest;
+          });
+          return opposite === start ? chooseEnd(model, start, 'farthest-edge', random, distances) : opposite;
+        }
+        const opposite = model.grid[model.rows - 1][model.columns - 1] ||
+          model.nodes.reduce((farthest, node) => node.x + node.y > farthest.x + farthest.y ? node : farthest, model.nodes[0]);
+        return opposite === start ? chooseEnd(model, start, 'farthest', random, distances) : opposite;
+      }
+
+      function getHexBoundary(model) {
+        return model.nodes.filter(node => node.edgeNeighbors &&
+          node.edgeNeighbors.some((neighbor, edge) => !neighbor && !node.centerEdges[edge]));
+      }
+
+      function isBoundaryNode(model, node) {
+        if (model.kind === 'circular') return node.ring === model.rings - 1;
+        if (model.kind === 'hexagonal') return getHexBoundary(model).includes(node);
+        if (model.kind === 'triangular') return getTriangleBoundary(model).includes(node);
+        return node.x === 0 || node.x === model.columns - 1 ||
+          node.y === 0 || node.y === model.rows - 1;
+      }
+
+      function getTriangleBoundary(model) {
+        return model.nodes.filter(node => node.edges.some(edge => edge.nodes.length === 1));
+      }
+
+      function triangleNodeCoordinates(node) {
+        const sum = node.vertices.reduce((total, point) => ({
+          x: total.x + point.i + point.j / 2,
+          y: total.y + point.j * Math.sqrt(3) / 2
+        }), { x: 0, y: 0 });
+        return { x: sum.x / 3, y: sum.y / 3 };
+      }
+
+      function getTriangleBoundaryEdge(node) {
+        return node.edges.find(edge => edge.nodes.length === 1);
+      }
+
+      function getSquareBoundary(model) {
+        return model.nodes.filter(node =>
+          node.x === 0 || node.x === model.columns - 1 ||
+          node.y === 0 || node.y === model.rows - 1
+        );
+      }
+
+      function getBoundarySide(node, model, isStart) {
+        const sides = isStart
+          ? [['top', node.y === 0], ['left', node.x === 0], ['bottom', node.y === model.rows - 1], ['right', node.x === model.columns - 1]]
+          : [['bottom', node.y === model.rows - 1], ['right', node.x === model.columns - 1], ['top', node.y === 0], ['left', node.x === 0]];
+        return sides.find(([, isBoundary]) => isBoundary)?.[0];
+      }
+
+      function buildPath(start, end, previous) {
+        const path = [];
+        let id = end.id;
+        while (id !== null) {
+          path.push(id);
+          if (id === start.id) break;
+          id = previous.get(id);
+        }
+        return path.reverse();
+      }
+
+      function ensureCenterOpenings(model) {
+        if (!model.centerNode || !model.centerOpenings) return;
+        model.centerOpenings.forEach(opening => {
+          const node = opening.node || opening;
+          node.links.add(model.centerNode.id);
+          model.centerNode.links.add(node.id);
+        });
+      }
+
+      function generate() {
+        try {
+          let dimensions;
+          try {
+            dimensions = readDimensions();
+          } catch (error) {
+            setStatus(error.message, 'error');
+            return;
+          }
+          const { width, height } = dimensions;
+          const density = Number(densityInput.value);
+          const thickness = Number(thicknessInput.value);
+          const seed = Number(seedInput.value);
+          if (shapeInput.value === 'square' && emptyCenterInput.checked &&
+              (!Number.isInteger(Number(squareCenterWidthInput.value)) || Number(squareCenterWidthInput.value) < 1 ||
+               !Number.isInteger(Number(squareCenterHeightInput.value)) || Number(squareCenterHeightInput.value) < 1)) {
+            throw new Error('Empty center width and height must be whole numbers greater than zero.');
+          }
+          if (shapeInput.value === 'hexagonal' && emptyCenterInput.checked &&
+              (!Number.isInteger(Number(hexCenterSizeInput.value)) || Number(hexCenterSizeInput.value) < 1)) {
+            throw new Error('Hexagonal center radius must be a whole number greater than zero.');
+          }
+          if (shapeInput.value === 'circular' && (!Number.isInteger(Number(circularLayersInput.value)) ||
+              Number(circularLayersInput.value) < 4 || Number(circularLayersInput.value) > 24)) {
+            throw new Error('Circular maze layers must be a whole number from 4 to 24.');
+          }
+          if (shapeInput.value === 'circular' && (!Number.isInteger(Number(circularCenterSizeInput.value)) ||
+              Number(circularCenterSizeInput.value) < 1 || Number(circularCenterSizeInput.value) > 8)) {
+            throw new Error('Circular center radius must be a whole number from 1 to 8 ring cells.');
+          }
+          if (!Number.isInteger(thickness) || thickness < 1 || thickness > 16) {
+            throw new Error('Wall thickness must be a whole number from 1 to 16 px.');
+          }
+          if (!Number.isInteger(seed) || seed < 0 || seed > 999999) {
+            throw new Error('Random seed must be a whole number from 0 to 999999.');
+          }
+          const random = randomGenerator(seed);
+          const model = shapeInput.value === 'circular'
+            ? makeCircularGrid(
+              width, height, density, Number(doublingInput.value),
+              Number(circularCenterSizeInput.value), Number(centerAccessInput.value),
+              Number(circularLayersInput.value), random
+            )
+            : shapeInput.value === 'hexagonal'
+              ? makeHexagonalGrid(
+                width, height, density,
+                emptyCenterInput.checked ? Number(hexCenterSizeInput.value) : 0,
+                Number(centerAccessInput.value), random
+              )
+              : shapeInput.value === 'triangular'
+                ? makeTriangularGrid(width, height, density)
+                : makeSquareGrid(
+                width, height, density,
+                emptyCenterInput.checked ? Number(squareCenterWidthInput.value) : 0,
+                emptyCenterInput.checked ? Number(squareCenterHeightInput.value) : 0,
+                Number(centerAccessInput.value), random
+              );
+          if (model.nodes.length > 50000) throw new Error('The maze is too dense. Reduce density or sector doubling.');
+          carveMaze(model, algorithmInput.value, random);
+          ensureCenterOpenings(model);
+          const start = chooseStart(model, startInput.value, random);
+          const distances = getDistances(start);
+          const end = chooseEnd(model, start, endInput.value, random, distances);
+          model.start = start;
+          model.end = end;
+          model.startChoice = startInput.value;
+          model.endChoice = endInput.value;
+          if (model.kind === 'triangular') {
+            model.startEdge = getTriangleBoundaryEdge(start);
+            model.endEdge = getTriangleBoundaryEdge(end);
+          }
+          model.path = buildPath(start, end, distances.previous);
+          model.thickness = thickness;
+          model.density = density;
+          maze = model;
+          canvas.width = width;
+          canvas.height = height;
+          updateControlLabels();
+          drawMaze();
+          const description = model.kind === 'square'
+            ? `${model.columns} × ${model.rows} tiles`
+            : model.kind === 'circular'
+              ? `${model.layers} rings · ${model.nodes.length.toLocaleString()} cells`
+              : model.kind === 'hexagonal'
+                ? `${model.nodes.length.toLocaleString()} cells · radius ${model.radius}`
+                : `${model.divisions} divisions · ${model.nodes.length.toLocaleString()} triangles`;
+          const centerDescription = model.centerNode
+            ? ` Center has ${model.centerOpenings.length} openings.`
+            : model.centerArea || model.centerSize > 0 ? ' Center has no access.' : '';
+          setStatus(`Ready: ${description}.${centerDescription} Route: ${model.path.length - 1} steps.`, 'success');
+        } catch (error) {
+          setStatus(error.message, 'error');
+        }
+      }
+
+      function randomizeMaze() {
+        const currentSeed = Number(seedInput.value);
+        let nextSeed = Math.floor(Math.random() * 1000000);
+        if (nextSeed === currentSeed) nextSeed = (nextSeed + 1) % 1000000;
+        const { width, height } = readDimensions();
+        const densities = Array.from({ length: 10 }, (_, index) => index + 1)
+          .filter(density => {
+            if (shapeInput.value !== 'square') return true;
+            const cellSize = Math.round(100 - (density - 1) * (76 / 9));
+            const columns = Math.max(2, Math.floor(width / cellSize));
+            const rows = Math.max(2, Math.floor(height / cellSize));
+            const centerWidth = emptyCenterInput.checked ? Number(squareCenterWidthInput.value) : 0;
+            const centerHeight = emptyCenterInput.checked ? Number(squareCenterHeightInput.value) : 0;
+            return columns * rows <= 50000 &&
+              (!centerWidth || !centerHeight || (centerWidth <= columns - 2 && centerHeight <= rows - 2));
+          });
+        if (!densities.length) {
+          setStatus('No density setting fits the current page size and center dimensions.', 'error');
+          return;
+        }
+        let nextDensity = densities[Math.floor(Math.random() * densities.length)];
+        if (densities.length > 1 && nextDensity === Number(densityInput.value)) {
+          const currentIndex = densities.indexOf(nextDensity);
+          nextDensity = densities[(currentIndex + 1 + Math.floor(Math.random() * (densities.length - 1))) % densities.length];
+        }
+        densityInput.value = String(nextDensity);
+        seedInput.value = String(nextSeed);
+        generate();
+      }
+
+      function updateControlLabels() {
+        const density = Number(densityInput.value);
+        densityValue.textContent = shapeInput.value === 'circular'
+          ? `${6 + (density - 1) * 3} sectors`
+          : shapeInput.value === 'hexagonal'
+            ? `radius ${3 + density * 2} tiles`
+            : shapeInput.value === 'triangular'
+              ? `${6 + density * 3} divisions`
+              : `${Math.round(100 - (density - 1) * (76 / 9))} px / tile`;
+        doublingValue.textContent = doublingInput.value;
+        thicknessValue.textContent = `${thicknessInput.value} px`;
+        document.querySelector('#startChoice option[value="corner"]').textContent =
+          shapeInput.value === 'hexagonal' ? 'Outer vertex' : shapeInput.value === 'triangular' ? 'Triangle vertex' : shapeInput.value === 'circular'
+            ? (Number(centerAccessInput.value) > 0 ? 'Outer edge' : 'Inner edge')
+            : 'Top-left corner';
+        document.querySelector('#startChoice option[value="center"]').textContent =
+          'Center';
+        document.querySelector('#endChoice option[value="opposite"]').textContent =
+          shapeInput.value === 'hexagonal' || shapeInput.value === 'triangular'
+            ? 'Opposite vertex' : shapeInput.value === 'circular' ? 'Outer edge' : 'Bottom-right corner';
+        const shape = shapeInput.value;
+        const hasToggleCenter = (shape === 'square' || shape === 'hexagonal') && emptyCenterInput.checked;
+        emptyCenterToggle.hidden = shape !== 'square' && shape !== 'hexagonal';
+        squareCenterFields.hidden = shape !== 'square' || !hasToggleCenter;
+        hexCenterField.hidden = shape !== 'hexagonal' || !hasToggleCenter;
+        circularCenterField.hidden = shape !== 'circular';
+        circularLayersField.hidden = shape !== 'circular';
+        centerAccessField.hidden = shape !== 'circular' && !hasToggleCenter;
+        doublingField.hidden = shape !== 'circular';
+      }
+
+      function drawMaze(target = context, printMode = false) {
+        if (!maze) return;
+        const { width, height } = maze;
+        target.save();
+        target.fillStyle = printMode ? '#ffffff' : '#111922';
+        target.fillRect(0, 0, width, height);
+        if (printMode) {
+          const margin = Math.round(Math.min(width, height) * 0.03);
+          const scale = Math.min((width - margin * 2) / width, (height - margin * 2) / height);
+          target.translate((width - width * scale) / 2, (height - height * scale) / 2);
+          target.scale(scale, scale);
+        }
+        target.strokeStyle = printMode ? '#000000' : '#dce8ed';
+        target.lineWidth = maze.thickness;
+        target.lineCap = 'square';
+        target.lineJoin = 'round';
+        target.beginPath();
+        if (maze.kind === 'square') drawSquareWalls(target);
+        else if (maze.kind === 'circular') drawCircularWalls(target);
+        else if (maze.kind === 'hexagonal') drawHexagonalWalls(target);
+        else drawTriangularWalls(target);
+        target.stroke();
+        if (solutionInput.checked) drawSolution(target, printMode);
+        drawEndpoint(target, maze.start, printMode, true);
+        drawEndpoint(target, maze.end, printMode, false);
+        target.restore();
+      }
+
+      function drawSquareWalls(target) {
+        const { columns, rows, grid, width, height } = maze;
+        const size = Math.min(width / columns, height / rows);
+        const offsetX = (width - size * columns) / 2;
+        const offsetY = (height - size * rows) / 2;
+        const sides = [
+          { name: 'top', dx: 0, dy: -1, x1: 0, y1: 0, x2: size, y2: 0 },
+          { name: 'right', dx: 1, dy: 0, x1: size, y1: 0, x2: size, y2: size },
+          { name: 'bottom', dx: 0, dy: 1, x1: size, y1: size, x2: 0, y2: size },
+          { name: 'left', dx: -1, dy: 0, x1: 0, y1: size, x2: 0, y2: 0 }
+        ];
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < columns; x++) {
+            const node = grid[y][x];
+            if (!node) continue;
+            const left = offsetX + x * size;
+            const top = offsetY + y * size;
+            const startOpening = node === maze.start ? getBoundarySide(node, maze, true) : null;
+            const endOpening = node === maze.end ? getBoundarySide(node, maze, false) : null;
+            for (const side of sides) {
+              const neighborX = x + side.dx;
+              const neighborY = y + side.dy;
+              const neighbor = neighborX >= 0 && neighborX < columns && neighborY >= 0 && neighborY < rows
+                ? grid[neighborY][neighborX]
+                : null;
+              const isCenterVoid = !neighbor && maze.centerArea &&
+                neighborX >= maze.centerArea.x && neighborX < maze.centerArea.x + maze.centerArea.width &&
+                neighborY >= maze.centerArea.y && neighborY < maze.centerArea.y + maze.centerArea.height;
+              if (neighbor && (node.id > neighbor.id || node.links.has(neighbor.id))) continue;
+              if (isCenterVoid && maze.centerOpenings?.some(opening => opening.node === node && opening.side === side.name)) continue;
+              if (!isCenterVoid && (startOpening === side.name || endOpening === side.name)) continue;
+              target.moveTo(left + side.x1, top + side.y1);
+              target.lineTo(left + side.x2, top + side.y2);
+            }
+          }
+        }
+      }
+
+      function drawCircularWalls(target) {
+        const { rings, grid, width, height } = maze;
+        const cx = width / 2;
+        const cy = height / 2;
+        const radius = Math.min(width, height) / 2 - 20;
+        const step = radius / (rings - 1 + maze.centerSize);
+        const centerRadius = step * maze.centerSize;
+        for (let ring = 1; ring < rings; ring++) {
+          const count = grid[ring].length;
+          const previousCount = grid[ring - 1].length;
+          for (let sector = 0; sector < count; sector++) {
+            const node = grid[ring][sector];
+            const innerNeighbor = grid[ring - 1][Math.floor(sector * previousCount / count)];
+            const rInner = centerRadius + (ring - 1) * step;
+            const rOuter = centerRadius + ring * step;
+            const start = sector * Math.PI * 2 / count;
+            const end = (sector + 1) * Math.PI * 2 / count;
+            if (!node.links.has(innerNeighbor.id)) {
+              target.moveTo(cx + rInner * Math.cos(start), cy + rInner * Math.sin(start));
+              target.arc(cx, cy, rInner, start, end);
+            }
+            if (ring === rings - 1 && node !== maze.start && node !== maze.end) {
+              target.moveTo(cx + rOuter * Math.cos(start), cy + rOuter * Math.sin(start));
+              target.arc(cx, cy, rOuter, start, end);
+            }
+            const next = grid[ring][(sector + 1) % count];
+            if (!node.links.has(next.id)) {
+              target.moveTo(cx + rInner * Math.cos(end), cy + rInner * Math.sin(end));
+              target.lineTo(cx + rOuter * Math.cos(end), cy + rOuter * Math.sin(end));
+            }
+          }
+        }
+      }
+
+      function getHexBoundaryEdge(node) {
+        const centerX = Math.sqrt(3) * (node.q + node.r / 2);
+        const centerY = 1.5 * node.r;
+        let boundaryEdge = -1;
+        let greatestDot = -Infinity;
+        node.edgeNeighbors.forEach((neighbor, edge) => {
+          if (neighbor || node.centerEdges[edge]) return;
+          const [dq, dr] = hexDirections[edge];
+          const directionX = Math.sqrt(3) * (dq + dr / 2);
+          const directionY = 1.5 * dr;
+          const dot = centerX * directionX + centerY * directionY;
+          if (dot > greatestDot) {
+            greatestDot = dot;
+            boundaryEdge = edge;
+          }
+        });
+        return boundaryEdge;
+      }
+
+      function drawHexagonalWalls(target) {
+        const { width, height, cellSize } = maze;
+        for (const node of maze.nodes) {
+          if (!node.edgeNeighbors) continue;
+          const centerX = width / 2 + Math.sqrt(3) * cellSize * (node.q + node.r / 2);
+          const centerY = height / 2 + 1.5 * cellSize * node.r;
+          const startOpening = node === maze.start ? getHexBoundaryEdge(node) : -1;
+          const endOpening = node === maze.end ? getHexBoundaryEdge(node) : -1;
+          for (let edge = 0; edge < 6; edge++) {
+            const neighbor = node.edgeNeighbors[edge];
+            if (neighbor) {
+              if (node.id > neighbor.id || node.links.has(neighbor.id)) continue;
+            } else {
+              if (node.centerEdges[edge] &&
+                  maze.centerOpenings?.some(opening => opening.node === node && opening.edge === edge)) continue;
+              if (!node.centerEdges[edge] && (edge === startOpening || edge === endOpening)) continue;
+            }
+            const angle = Math.PI / 6 + edge * Math.PI / 3;
+            const nextAngle = angle + Math.PI / 3;
+            target.moveTo(
+              centerX + cellSize * Math.cos(angle),
+              centerY + cellSize * Math.sin(angle)
+            );
+            target.lineTo(
+              centerX + cellSize * Math.cos(nextAngle),
+              centerY + cellSize * Math.sin(nextAngle)
+            );
+          }
+        }
+      }
+
+      function trianglePoint(model, point) {
+        const height = model.divisions * Math.sqrt(3) / 2;
+        const originX = (model.width - model.divisions * model.sideLength) / 2;
+        const originY = (model.height - height * model.sideLength) / 2;
+        return {
+          x: originX + model.sideLength * (point.i + point.j / 2),
+          y: originY + model.sideLength * point.j * Math.sqrt(3) / 2
+        };
+      }
+
+      function drawTriangularWalls(target) {
+        for (const edge of maze.edges) {
+          if (edge.nodes.length === 2) {
+            if (edge.nodes[0].links.has(edge.nodes[1].id)) continue;
+          } else if (edge === maze.startEdge || edge === maze.endEdge) {
+            continue;
+          }
+          const first = trianglePoint(maze, edge.vertices[0]);
+          const second = trianglePoint(maze, edge.vertices[1]);
+          target.moveTo(first.x, first.y);
+          target.lineTo(second.x, second.y);
+        }
+      }
+
+      function nodePosition(node) {
+        if (maze.kind === 'square') {
+          const size = Math.min(maze.width / maze.columns, maze.height / maze.rows);
+          return {
+            x: (maze.width - size * maze.columns) / 2 + (node.x + 0.5) * size,
+            y: (maze.height - size * maze.rows) / 2 + (node.y + 0.5) * size
+          };
+        }
+        if (maze.kind === 'triangular') {
+          const center = triangleNodeCoordinates(node);
+            const j = center.y / (Math.sqrt(3) / 2);
+            return trianglePoint(maze, { i: center.x - j / 2, j });
+        }
+        if (maze.kind === 'hexagonal') {
+          return {
+            x: maze.width / 2 + Math.sqrt(3) * maze.cellSize * (node.q + node.r / 2),
+            y: maze.height / 2 + 1.5 * maze.cellSize * node.r
+          };
+        }
+        if (node.ring === 0) return { x: maze.width / 2, y: maze.height / 2 };
+        const radius = Math.min(maze.width, maze.height) / 2 - 20;
+        const step = radius / (maze.rings - 1 + maze.centerSize);
+        const centerRadius = step * maze.centerSize;
+        const r = centerRadius + (node.ring - 0.5) * step;
+        const angle = (node.sector + 0.5) * Math.PI * 2 / maze.grid[node.ring].length;
+        return { x: maze.width / 2 + Math.cos(angle) * r, y: maze.height / 2 + Math.sin(angle) * r };
+      }
+
+      function drawSolution(target, printMode) {
+        if (!maze.path.length) return;
+        target.save();
+        target.beginPath();
+        maze.path.forEach((id, index) => {
+          const point = nodePosition(maze.nodes[id]);
+          if (index === 0) target.moveTo(point.x, point.y);
+          else target.lineTo(point.x, point.y);
+        });
+        target.strokeStyle = printMode ? '#000000' : '#73e5c4';
+        target.lineWidth = Math.max(2.5, maze.thickness * 1.5);
+        target.lineCap = 'round';
+        target.lineJoin = 'round';
+        target.globalAlpha = printMode ? 1 : 0.5;
+        target.stroke();
+        target.restore();
+      }
+
+      function drawEndpoint(target, node, printMode, isStart) {
+        const choice = isStart ? maze.startChoice : maze.endChoice;
+        if (choice === 'center' || node === chooseCenterNode(maze) || isBoundaryNode(maze, node)) return;
+        const point = nodePosition(node);
+        const radius = Math.max(4, maze.thickness * 1.5);
+        target.beginPath();
+        target.arc(point.x, point.y, radius, 0, Math.PI * 2);
+        target.fillStyle = printMode ? '#000000' : isStart ? '#73e5c4' : '#f5b971';
+        target.fill();
+      }
+
+      function resizePreview() {
+        if (!maze) return;
+        const stage = document.querySelector('.stage');
+        const bounds = stage.getBoundingClientRect();
+        const scale = Math.min((bounds.width - 48) / maze.width, (bounds.height - 48) / maze.height, 1);
+        canvas.style.width = `${Math.max(1, Math.floor(maze.width * scale))}px`;
+        canvas.style.height = `${Math.max(1, Math.floor(maze.height * scale))}px`;
+      }
+
+      function savePNG() {
+        if (!maze) {
+          setStatus('Generate a maze first.', 'error');
+          return;
+        }
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = maze.width;
+        exportCanvas.height = maze.height;
+        drawMaze(exportCanvas.getContext('2d'), true);
+        exportCanvas.toBlob(blob => {
+          if (!blob) {
+            setStatus('Could not prepare the PNG image.', 'error');
+            return;
+          }
+          const link = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          link.href = url;
+          link.download = `maze-${maze.kind}-${maze.width}x${maze.height}-${seedInput.value}.png`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+          setStatus(`Saved ${maze.width.toLocaleString()} × ${maze.height.toLocaleString()} px PNG.`, 'success');
+        }, 'image/png');
+      }
+
+      async function copySettingsLink() {
+        const url = createSettingsUrl();
+        settingsLinkInput.value = url;
+        settingsLinkField.hidden = false;
+        settingsLinkInput.select();
+        try {
+          await navigator.clipboard.writeText(url);
+          setStatus('Settings link copied. Open it to restore this maze, or use it to create a QR code.', 'success');
+        } catch (error) {
+          setStatus(`Settings link is ready below, but could not be copied automatically: ${error.message}`, 'error');
+        }
+      }
+
+      pageSize.addEventListener('change', () => {
+        customSizeFields.hidden = pageSize.value !== 'custom';
+        try { readDimensions(); } catch (error) { setStatus(error.message, 'error'); }
+        generate();
+      });
+      [widthInput, heightInput].forEach(input => input.addEventListener('change', generate));
+      shapeInput.addEventListener('change', () => {
+        updateControlLabels();
+        generate();
+      });
+      [densityInput, doublingInput, circularLayersInput, circularCenterSizeInput, squareCenterWidthInput, squareCenterHeightInput,
+        hexCenterSizeInput, centerAccessInput, thicknessInput, algorithmInput, startInput, endInput, seedInput]
+        .forEach(input => input.addEventListener(input.type === 'range' ? 'input' : 'change', generate));
+      emptyCenterInput.addEventListener('change', () => {
+        updateControlLabels();
+        generate();
+      });
+      solutionInput.addEventListener('change', () => { drawMaze(); });
+      document.getElementById('randomize').addEventListener('click', randomizeMaze);
+      document.getElementById('generate').addEventListener('click', generate);
+      document.getElementById('savePNG').addEventListener('click', savePNG);
+      document.getElementById('shareSettings').addEventListener('click', copySettingsLink);
+      document.getElementById('toggleSettings').addEventListener('click', event => {
+        const collapsed = document.body.classList.toggle('settings-collapsed');
+        event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+        event.currentTarget.setAttribute('aria-label', collapsed ? 'Show settings' : 'Hide settings');
+        event.currentTarget.title = collapsed ? 'Show settings' : 'Hide settings';
+        event.currentTarget.textContent = collapsed ? '›' : '‹';
+        requestAnimationFrame(resizePreview);
+      });
+      window.addEventListener('resize', () => {
+        cancelAnimationFrame(renderFrame);
+        renderFrame = requestAnimationFrame(resizePreview);
+      });
+
+      customSizeFields.hidden = true;
+      doublingField.hidden = true;
+      const invalidLinkSettings = getSettingsFromUrl();
+      customSizeFields.hidden = pageSize.value !== 'custom';
+      updateControlLabels();
+      generate();
+      if (invalidLinkSettings.length) {
+        setStatus(`Invalid settings in link were ignored: ${invalidLinkSettings.join(', ')}.`, 'error');
+      }
+    })();
+  </script>
+</body>
+</html>

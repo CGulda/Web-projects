@@ -297,23 +297,28 @@
     <aside class="pattern-nav" aria-label="Pattern selection">
       <p class="nav-label">PATTERNS</p>
       <nav class="pattern-list">
-        <a class="pattern-link" href="#square-maze" aria-current="location">
+        <a class="pattern-link" href="maze-generator.html">
           <span class="pattern-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M4 4h16v16H4zM4 10h5V6h5v7h-3v4h6v-4h3M9 10v3H4m11-7h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="round"/>
+              <g stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="round">
+                <path d="m2.5 9.4 4.8-7.2 4.8 7.2H2.5Z M4.8 7.6h2.1V5.5h2.1"/>
+                <path d="M13.2 2.7h8.2v7.4h-8.2z M13.2 5.1h3v2.6h2.1V5.1h3.1"/>
+                <path d="m2.7 14.4 3.9-2.2 3.9 2.2v4.5l-3.9 2.2-3.9-2.2z M3.5 15.2h2v3h2v-2h2"/>
+                <path d="M17.3 12.1a4.5 4.5 0 1 0 4.5 4.5 M14.4 16.6h2v-2h2.1v2h2.1"/>
+                <path d="M11.5 8.4h1.7m-1.9 7.2h1.6"/>
+              </g>
             </svg>
           </span>
-          <span class="pattern-name">Square maze</span>
+          <span class="pattern-name">Maze generator</span>
         </a>
-        <a class="pattern-link" href="#circular-maze">
+        <a class="pattern-link" href="mesh.html">
           <span class="pattern-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.4"/>
-              <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.4"/>
-              <path d="M12 3v3.5h3v3h-3v3h3.5v3h-3.5V21M21 12h-3.5v3h-3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="m3.5 6 6-2 5 4 6-2M3.5 6l2 9 6 4 9-5-1-8M5.5 15l8-5 7 4M9.5 4l4 6-2 9" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="3.5" cy="6" r="1.3" fill="currentColor"/><circle cx="9.5" cy="4" r="1.3" fill="currentColor"/><circle cx="14.5" cy="8" r="1.3" fill="currentColor"/><circle cx="20.5" cy="6" r="1.3" fill="currentColor"/><circle cx="5.5" cy="15" r="1.3" fill="currentColor"/><circle cx="11.5" cy="19" r="1.3" fill="currentColor"/><circle cx="20.5" cy="14" r="1.3" fill="currentColor"/>
             </svg>
           </span>
-          <span class="pattern-name">Circular maze</span>
+          <span class="pattern-name">Mesh generator</span>
         </a>
       </nav>
       <p class="nav-caption">Choose a pattern to jump to its preview.</p>
@@ -321,47 +326,43 @@
 
     <main>
       <div class="pattern-grid" aria-label="Generative maze patterns">
-        <a class="pattern-card" id="square-maze" href="maze%20builder.html" aria-label="Open Maze Builder">
+        <a class="pattern-card" id="maze-generator" href="maze-generator.html" aria-label="Open Maze Generator">
           <div class="preview" aria-hidden="true">
             <svg viewBox="0 0 360 230" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g stroke="#d4e4df" stroke-width="2.3" stroke-linecap="square">
-                <path d="M90 25h180v180H90V25Z M90 77h45V48h43v58h-25v34h-63 M135 77v27h-34 M178 48h51v29h-30v29h49v34h-64 M229 48h41 M270 77h-22v29h22 M90 143h35v62 M159 205v-34h25 M248 106v24h22"/>
+              <g stroke="#d4e4df" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="round">
+                <path d="M77 63h-7v30h8v20h-8v48h26v-23h40v-36h-22V79h30V54h32v29h-15v25h28v25h24v-34h36v-28h29"/>
+                <path d="M90 63v-14h26V38h24v11h-9v17m51-12h31V33h25v18h26M83 146h22v20h29v32m44-84h-18v27h-25v23m49-36v24h31v-22h-14m35 40h-24v18h39v-25h20m-89-96v11h-12V38"/>
+                <path d="M105 75a22 22 0 0 1 43-7m8 4 14 8m28 4 14-8m3 62 12 16m-56-4 10 18m-77-20 1 17m122-71 17-11"/>
               </g>
-              <path d="M90 111h35V77h53V48h51v29h-30v29h49v34h-64v34h-25v31h-59v-62H90v-32Z" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="90" cy="111" r="4" fill="#73e5c4"/>
-              <circle cx="184" cy="205" r="4" fill="#73e5c4"/>
+              <path d="M70 84h18V65h30V49h22v16h-9v23h16v26h-19v26H96v26h40v-18h22v23h38v-30h-24v-22h26v14h31v-22h25v-27h28" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="70" cy="84" r="4" fill="#73e5c4"/>
+              <circle cx="292" cy="84" r="4" fill="#f5b971"/>
             </svg>
           </div>
           <div class="card-details">
             <div class="card-heading">
-              <h2>Maze Builder</h2>
+              <h2>Maze Generator</h2>
               <span class="card-number">01</span>
             </div>
-            <p>Build a custom square maze, reveal its solution, and save a print-ready page.</p>
           </div>
         </a>
-
-        <a class="pattern-card" id="circular-maze" href="circular%20maze%20stable.html" aria-label="Open Circular Maze">
+        <a class="pattern-card" id="mesh-generator" href="mesh.html" aria-label="Open Mesh Generator">
           <div class="preview" aria-hidden="true">
-            <svg class="circle-art" viewBox="0 0 300 250" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g stroke="#d4e4df" stroke-width="2">
-                <circle cx="150" cy="125" r="94"/>
-                <circle cx="150" cy="125" r="67"/>
-                <circle cx="150" cy="125" r="39"/>
-                <path d="M150 31v27 M150 97v28 M150 164v27 M150 219v-28 M56 125h27 M122 125h28 M189 125h28 M244 125h-27 M83.5 58.5l19.1 19.1 M150 125l-19.1-19.1 M216.5 191.5l-19.1-19.1 M216.5 58.5l-19.1 19.1 M150 125l19.1 19.1 M83.5 191.5l19.1-19.1"/>
+            <svg viewBox="0 0 360 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="#d4e4df" stroke-width="1.8" opacity=".8">
+                <path d="m62 70 58-26 48 52-40 58-66-12-26-41 26-31Zm58-26 74-8 38 55-64 5m-38 58 38-58 52 38-31 50-59-30Zm112-82 56 12 35 55-51 26-48-46m-55-39 62-48 54 28m-75 134-19-40 59-42 51 24-12 48m-198-78 66 12 14 66 59 30m-153-87 26 41-9 51m125-53 40 56 54-45"/>
               </g>
-              <path d="M150 31v27h-28v39h28v28h39V97h28V70h-28V50" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M244 125h-27v28h-28v38h-39v-28h-28v-38H83" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="150" cy="31" r="4" fill="#73e5c4"/>
-              <circle cx="56" cy="125" r="4" fill="#73e5c4"/>
+              <g fill="#73e5c4">
+                <circle cx="62" cy="70" r="4"/><circle cx="120" cy="44" r="4"/><circle cx="168" cy="96" r="4"/><circle cx="128" cy="154" r="4"/><circle cx="62" cy="138" r="4"/><circle cx="194" cy="36" r="4"/><circle cx="232" cy="91" r="4"/><circle cx="168" cy="96" r="4"/><circle cx="220" cy="134" r="4"/><circle cx="189" cy="184" r="4"/><circle cx="278" cy="48" r="4"/><circle cx="334" cy="60" r="4"/><circle cx="309" cy="170" r="4"/>
+              </g>
+              <circle cx="334" cy="60" r="5" fill="#f5b971"/>
             </svg>
           </div>
           <div class="card-details">
             <div class="card-heading">
-              <h2>Circular Maze</h2>
+              <h2>Mesh Generator</h2>
               <span class="card-number">02</span>
             </div>
-            <p>Explore a radial maze that winds through rings and branching paths.</p>
           </div>
         </a>
       </div>
