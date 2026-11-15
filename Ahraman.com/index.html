@@ -161,7 +161,7 @@
       flex-direction: column;
       overflow: hidden;
       border: 1px solid var(--border);
-      border-radius: 17px;
+      border-radius: var(--radius-panel);
       background: rgb(14 22 25 / 88%);
       box-shadow: 0 20px 70px rgb(0 0 0 / 19%);
       scroll-margin-top: 20px;
@@ -250,6 +250,32 @@
       line-height: 1.55;
     }
 
+    .gallery-heading { margin-bottom: var(--space-lg); }
+    .gallery-heading p {
+      margin: 0 0 var(--space-sm);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .gallery-heading h1 {
+      margin: 0;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      letter-spacing: -0.05em;
+      line-height: 1.1;
+    }
+    .gallery-heading .gallery-intro {
+      max-width: 46ch;
+      margin: 12px 0 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 400;
+      letter-spacing: normal;
+      line-height: 1.6;
+      text-transform: none;
+    }
+
     @media (max-width: 760px) {
       .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
       .pattern-nav {
@@ -298,17 +324,7 @@
       <p class="nav-label">PATTERNS</p>
       <nav class="pattern-list">
         <a class="pattern-link" href="maze-generator.html">
-          <span class="pattern-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <g stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="round">
-                <path d="m2.5 9.4 4.8-7.2 4.8 7.2H2.5Z M4.8 7.6h2.1V5.5h2.1"/>
-                <path d="M13.2 2.7h8.2v7.4h-8.2z M13.2 5.1h3v2.6h2.1V5.1h3.1"/>
-                <path d="m2.7 14.4 3.9-2.2 3.9 2.2v4.5l-3.9 2.2-3.9-2.2z M3.5 15.2h2v3h2v-2h2"/>
-                <path d="M17.3 12.1a4.5 4.5 0 1 0 4.5 4.5 M14.4 16.6h2v-2h2.1v2h2.1"/>
-                <path d="M11.5 8.4h1.7m-1.9 7.2h1.6"/>
-              </g>
-            </svg>
-          </span>
+          <span class="pattern-icon" aria-hidden="true">◎</span>
           <span class="pattern-name">Maze generator</span>
         </a>
         <a class="pattern-link" href="mesh.html">
@@ -320,23 +336,32 @@
           </span>
           <span class="pattern-name">Mesh generator</span>
         </a>
+        <a class="pattern-link" href="wavefuncallapse.html">
+          <span class="pattern-icon" aria-hidden="true">▦</span>
+          <span class="pattern-name">Wave collapse</span>
+        </a>
       </nav>
-      <p class="nav-caption">Choose a pattern to jump to its preview.</p>
+      <p class="nav-caption">Choose a pattern to open its workspace.</p>
     </aside>
 
     <main>
-      <div class="pattern-grid" aria-label="Generative maze patterns">
+      <header class="gallery-heading">
+        <p>Ahraman Design · Creative tools</p>
+        <h1>Patterns in motion.</h1>
+        <p class="gallery-intro">Explore generative patterns, shape your own compositions, and make something unexpected.</p>
+      </header>
+      <div class="pattern-grid" aria-label="Generative pattern projects">
         <a class="pattern-card" id="maze-generator" href="maze-generator.html" aria-label="Open Maze Generator">
           <div class="preview" aria-hidden="true">
-            <svg viewBox="0 0 360 230" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <g stroke="#d4e4df" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="round">
-                <path d="M77 63h-7v30h8v20h-8v48h26v-23h40v-36h-22V79h30V54h32v29h-15v25h28v25h24v-34h36v-28h29"/>
-                <path d="M90 63v-14h26V38h24v11h-9v17m51-12h31V33h25v18h26M83 146h22v20h29v32m44-84h-18v27h-25v23m49-36v24h31v-22h-14m35 40h-24v18h39v-25h20m-89-96v11h-12V38"/>
-                <path d="M105 75a22 22 0 0 1 43-7m8 4 14 8m28 4 14-8m3 62 12 16m-56-4 10 18m-77-20 1 17m122-71 17-11"/>
+            <svg class="circle-art" viewBox="0 0 240 240" fill="none">
+              <g stroke="#d4e4df" stroke-width="3" stroke-linecap="round">
+                <circle cx="120" cy="120" r="85" stroke-dasharray="160 14 95 14 250"/>
+                <circle cx="120" cy="120" r="64" stroke-dasharray="95 12 135 12 150"/>
+                <circle cx="120" cy="120" r="43" stroke-dasharray="70 12 100 12 90"/>
+                <circle cx="120" cy="120" r="22" stroke-dasharray="50 12 90"/>
+                <path d="M120 35v21m60 4-15 15m40 45h-21m-4 60-15-15m-45 40v-21m-60-4 15-15m-40-45h21m4-60 15 15"/>
               </g>
-              <path d="M70 84h18V65h30V49h22v16h-9v23h16v26h-19v26H96v26h40v-18h22v23h38v-30h-24v-22h26v14h31v-22h25v-27h28" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="70" cy="84" r="4" fill="#73e5c4"/>
-              <circle cx="292" cy="84" r="4" fill="#f5b971"/>
+              <path d="M120 120v-22a22 22 0 0 1 22 22h21a43 43 0 0 0-43-43V56" stroke="#73e5c4" stroke-width="3" stroke-linecap="round"/>
             </svg>
           </div>
           <div class="card-details">
@@ -344,6 +369,7 @@
               <h2>Maze Generator</h2>
               <span class="card-number">01</span>
             </div>
+            <p>Explore four maze shapes and create a print-ready pattern.</p>
           </div>
         </a>
         <a class="pattern-card" id="mesh-generator" href="mesh.html" aria-label="Open Mesh Generator">
@@ -363,6 +389,21 @@
               <h2>Mesh Generator</h2>
               <span class="card-number">02</span>
             </div>
+            <p>Shape a living network of particles, color, and motion.</p>
+          </div>
+        </a>
+        <a class="pattern-card" id="wave-collapse" href="wavefuncallapse.html">
+          <div class="preview" aria-hidden="true">
+            <svg viewBox="0 0 240 240" fill="none">
+              <path d="M48 48h144v144H48z M72 48v144 M96 48v144 M120 48v144 M144 48v144 M168 48v144 M48 72h144 M48 96h144 M48 120h144 M48 144h144 M48 168h144" stroke="#d8f4ec" opacity=".2"/>
+              <g stroke="#73e5c4" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M48 60h36v24h48v24h48v24h12 M60 48v60h48v24H84v24H48 M108 48v36 M156 48v36h-24 M108 108V60h24 M60 108v72H48 M108 132v48h48v12 M84 156h48v-24 M192 156h-36v-24 M180 132v48h-24 M180 180v12"/>
+              </g>
+            </svg>
+          </div>
+          <div class="card-details">
+            <div class="card-heading"><h2>Wave Function Collapse</h2><span class="card-number">03</span></div>
+            <p>Generate a grid of connected road tiles.</p>
           </div>
         </a>
       </div>
@@ -374,7 +415,6 @@
       const canvas = document.getElementById('mesh-background');
       const context = canvas.getContext('2d');
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-      const navigationLinks = [...document.querySelectorAll('.pattern-link')];
       let width = 0;
       let height = 0;
       let particles = [];
@@ -457,23 +497,10 @@
         if (!reducedMotion.matches) animationFrame = window.requestAnimationFrame(animate);
       }
 
-      function updateSelectedPattern() {
-        const currentHash = window.location.hash || '#square-maze';
-        navigationLinks.forEach((link) => {
-          if (link.getAttribute('href') === currentHash) {
-            link.setAttribute('aria-current', 'location');
-          } else {
-            link.removeAttribute('aria-current');
-          }
-        });
-      }
-
       window.addEventListener('resize', resize, { passive: true });
-      window.addEventListener('hashchange', updateSelectedPattern);
       reducedMotion.addEventListener('change', startAnimation);
       resize();
       startAnimation();
-      updateSelectedPattern();
     })();
   </script>
 </body>

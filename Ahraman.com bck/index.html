@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1014">
+  <meta name="description" content="Generative art and code-built maze patterns by Ahraman Design.">
+  <title>Ahraman · Patterns</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    html { min-width: 320px; scroll-behavior: smooth; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      overflow-x: hidden;
+      background: radial-gradient(ellipse at 70% 15%, rgb(34 70 67 / 16%), transparent 48%), var(--app-bg);
+    }
+
+    #mesh-background {
+      position: fixed;
+      z-index: 0;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .layout {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      min-height: 100vh;
+      grid-template-columns: 76px minmax(0, 1fr);
+      transition: grid-template-columns 180ms ease;
+    }
+
+    .pattern-nav {
+      position: sticky;
+      top: 0;
+      display: flex;
+      width: 76px;
+      height: 100vh;
+      flex-direction: column;
+      gap: 20px;
+      overflow: hidden;
+      padding: 22px 10px;
+      border-right: 1px solid var(--border);
+      background: rgb(13 20 23 / 92%);
+      backdrop-filter: blur(14px);
+      transition: width 180ms ease, background 180ms ease;
+    }
+
+    .pattern-nav:hover,
+    .pattern-nav:focus-within {
+      width: 250px;
+      background: rgb(13 20 23 / 97%);
+    }
+
+    .nav-label {
+      flex: 0 0 auto;
+      margin: 0;
+      padding: 10px 12px;
+      color: #84928f;
+      font-size: 0.69rem;
+      font-weight: 720;
+      letter-spacing: 0.17em;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .pattern-nav:hover .nav-label,
+    .pattern-nav:focus-within .nav-label { text-align: left; }
+
+    .pattern-list {
+      display: grid;
+      align-content: start;
+      gap: 9px;
+    }
+
+    .pattern-link {
+      display: flex;
+      min-width: 220px;
+      min-height: 48px;
+      align-items: center;
+      gap: 13px;
+      padding: 6px 9px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      color: #c3cfcb;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+    }
+
+    .pattern-link:hover,
+    .pattern-link:focus-visible,
+    .pattern-link[aria-current="location"] {
+      border-color: rgb(115 229 196 / 22%);
+      background: rgb(115 229 196 / 9%);
+      color: #f0f8f5;
+      outline: none;
+    }
+
+    .pattern-icon {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgb(255 255 255 / 3%);
+      color: var(--accent);
+    }
+
+    .pattern-icon svg { width: 24px; height: 24px; }
+
+    .pattern-name {
+      overflow: hidden;
+      font-size: 0.88rem;
+      font-weight: 620;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .pattern-nav:hover .pattern-name,
+    .pattern-nav:focus-within .pattern-name { opacity: 1; }
+
+    .nav-caption {
+      margin: auto 8px 0;
+      color: #76827f;
+      font-size: 0.72rem;
+      line-height: 1.5;
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+
+    .pattern-nav:hover .nav-caption,
+    .pattern-nav:focus-within .nav-caption { opacity: 1; }
+
+    main {
+      min-width: 0;
+      align-self: center;
+      width: min(1120px, calc(100% - 72px));
+      margin: 0 auto;
+      padding: 42px 0;
+    }
+
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      scroll-margin-top: 20px;
+    }
+
+    .pattern-card {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      background: rgb(14 22 25 / 88%);
+      box-shadow: 0 20px 70px rgb(0 0 0 / 19%);
+      scroll-margin-top: 20px;
+      color: inherit;
+      text-decoration: none;
+      transition: transform 170ms ease, border-color 170ms ease, background 170ms ease;
+    }
+
+    .pattern-card:hover {
+      transform: translateY(-4px);
+      border-color: rgb(115 229 196 / 44%);
+      background: rgb(17 28 30 / 96%);
+    }
+
+    .pattern-card:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring), 0 20px 70px rgb(0 0 0 / 19%);
+    }
+
+    .pattern-card:target {
+      border-color: rgb(115 229 196 / 70%);
+      box-shadow: 0 0 0 1px rgb(115 229 196 / 18%), 0 20px 70px rgb(0 0 0 / 19%);
+    }
+
+    .preview {
+      position: relative;
+      display: grid;
+      min-height: 300px;
+      overflow: hidden;
+      place-items: center;
+      background:
+        radial-gradient(ellipse at center, rgb(41 89 79 / 17%), transparent 68%),
+        rgb(10 17 20 / 74%);
+    }
+
+    .preview::before {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgb(179 214 205 / 14%) 0.7px, transparent 0.7px);
+      background-size: 18px 18px;
+      content: "";
+      pointer-events: none;
+    }
+
+    .preview svg {
+      position: relative;
+      z-index: 1;
+      width: min(78%, 390px);
+      height: 230px;
+      filter: drop-shadow(0 0 17px rgb(115 229 196 / 11%));
+    }
+
+    .preview .circle-art { width: min(76%, 340px); height: 250px; }
+
+    .card-details {
+      display: grid;
+      gap: 9px;
+      padding: 21px 23px 23px;
+    }
+
+    .card-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-heading h2 {
+      margin: 0;
+      font-size: 1.13rem;
+      font-weight: 620;
+      letter-spacing: -0.035em;
+    }
+
+    .card-number {
+      color: #7e8d89;
+      font-size: 0.73rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.08em;
+    }
+
+    .card-details p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.86rem;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 760px) {
+      .layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .pattern-nav {
+        position: sticky;
+        z-index: 2;
+        top: 0;
+        width: 100%;
+        height: auto;
+        gap: 8px;
+        padding: 10px 16px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .pattern-nav:hover,
+      .pattern-nav:focus-within { width: 100%; }
+      .nav-label { padding: 3px 4px; text-align: left; }
+      .pattern-nav:hover .nav-label,
+      .pattern-nav:focus-within .nav-label { text-align: left; }
+      .pattern-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .pattern-link { min-width: 0; min-height: 44px; gap: 9px; padding: 3px; }
+      .pattern-icon { width: 36px; height: 36px; }
+      .pattern-name { overflow: visible; font-size: 0.79rem; opacity: 1; }
+      .nav-caption { display: none; }
+      main { align-self: start; width: min(620px, calc(100% - 32px)); padding: 24px 0 36px; }
+      .pattern-grid { grid-template-columns: 1fr; gap: 16px; }
+      .preview { min-height: 260px; }
+      .preview svg { height: 205px; }
+      .preview .circle-art { height: 225px; }
+    }
+
+    @media (max-width: 420px) {
+      .pattern-nav { padding-inline: 10px; }
+      .pattern-link { gap: 7px; }
+      .pattern-name { font-size: 0.73rem; }
+      main { width: calc(100% - 24px); padding-top: 16px; }
+      .preview { min-height: 230px; }
+      .card-details { padding: 18px; }
+    }
+
+  </style>
+</head>
+<body>
+  <canvas id="mesh-background" aria-hidden="true"></canvas>
+  <div class="layout">
+    <aside class="pattern-nav" aria-label="Pattern selection">
+      <p class="nav-label">PATTERNS</p>
+      <nav class="pattern-list">
+        <a class="pattern-link" href="maze-generator.html">
+          <span class="pattern-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <g stroke="currentColor" stroke-width="1.2" stroke-linecap="square" stroke-linejoin="round">
+                <path d="m2.5 9.4 4.8-7.2 4.8 7.2H2.5Z M4.8 7.6h2.1V5.5h2.1"/>
+                <path d="M13.2 2.7h8.2v7.4h-8.2z M13.2 5.1h3v2.6h2.1V5.1h3.1"/>
+                <path d="m2.7 14.4 3.9-2.2 3.9 2.2v4.5l-3.9 2.2-3.9-2.2z M3.5 15.2h2v3h2v-2h2"/>
+                <path d="M17.3 12.1a4.5 4.5 0 1 0 4.5 4.5 M14.4 16.6h2v-2h2.1v2h2.1"/>
+                <path d="M11.5 8.4h1.7m-1.9 7.2h1.6"/>
+              </g>
+            </svg>
+          </span>
+          <span class="pattern-name">Maze generator</span>
+        </a>
+        <a class="pattern-link" href="mesh.html">
+          <span class="pattern-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="m3.5 6 6-2 5 4 6-2M3.5 6l2 9 6 4 9-5-1-8M5.5 15l8-5 7 4M9.5 4l4 6-2 9" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="3.5" cy="6" r="1.3" fill="currentColor"/><circle cx="9.5" cy="4" r="1.3" fill="currentColor"/><circle cx="14.5" cy="8" r="1.3" fill="currentColor"/><circle cx="20.5" cy="6" r="1.3" fill="currentColor"/><circle cx="5.5" cy="15" r="1.3" fill="currentColor"/><circle cx="11.5" cy="19" r="1.3" fill="currentColor"/><circle cx="20.5" cy="14" r="1.3" fill="currentColor"/>
+            </svg>
+          </span>
+          <span class="pattern-name">Mesh generator</span>
+        </a>
+      </nav>
+      <p class="nav-caption">Choose a pattern to jump to its preview.</p>
+    </aside>
+
+    <main>
+      <div class="pattern-grid" aria-label="Generative maze patterns">
+        <a class="pattern-card" id="maze-generator" href="maze-generator.html" aria-label="Open Maze Generator">
+          <div class="preview" aria-hidden="true">
+            <svg viewBox="0 0 360 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="#d4e4df" stroke-width="2.2" stroke-linecap="square" stroke-linejoin="round">
+                <path d="M77 63h-7v30h8v20h-8v48h26v-23h40v-36h-22V79h30V54h32v29h-15v25h28v25h24v-34h36v-28h29"/>
+                <path d="M90 63v-14h26V38h24v11h-9v17m51-12h31V33h25v18h26M83 146h22v20h29v32m44-84h-18v27h-25v23m49-36v24h31v-22h-14m35 40h-24v18h39v-25h20m-89-96v11h-12V38"/>
+                <path d="M105 75a22 22 0 0 1 43-7m8 4 14 8m28 4 14-8m3 62 12 16m-56-4 10 18m-77-20 1 17m122-71 17-11"/>
+              </g>
+              <path d="M70 84h18V65h30V49h22v16h-9v23h16v26h-19v26H96v26h40v-18h22v23h38v-30h-24v-22h26v14h31v-22h25v-27h28" stroke="#73e5c4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="70" cy="84" r="4" fill="#73e5c4"/>
+              <circle cx="292" cy="84" r="4" fill="#f5b971"/>
+            </svg>
+          </div>
+          <div class="card-details">
+            <div class="card-heading">
+              <h2>Maze Generator</h2>
+              <span class="card-number">01</span>
+            </div>
+          </div>
+        </a>
+        <a class="pattern-card" id="mesh-generator" href="mesh.html" aria-label="Open Mesh Generator">
+          <div class="preview" aria-hidden="true">
+            <svg viewBox="0 0 360 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g stroke="#d4e4df" stroke-width="1.8" opacity=".8">
+                <path d="m62 70 58-26 48 52-40 58-66-12-26-41 26-31Zm58-26 74-8 38 55-64 5m-38 58 38-58 52 38-31 50-59-30Zm112-82 56 12 35 55-51 26-48-46m-55-39 62-48 54 28m-75 134-19-40 59-42 51 24-12 48m-198-78 66 12 14 66 59 30m-153-87 26 41-9 51m125-53 40 56 54-45"/>
+              </g>
+              <g fill="#73e5c4">
+                <circle cx="62" cy="70" r="4"/><circle cx="120" cy="44" r="4"/><circle cx="168" cy="96" r="4"/><circle cx="128" cy="154" r="4"/><circle cx="62" cy="138" r="4"/><circle cx="194" cy="36" r="4"/><circle cx="232" cy="91" r="4"/><circle cx="168" cy="96" r="4"/><circle cx="220" cy="134" r="4"/><circle cx="189" cy="184" r="4"/><circle cx="278" cy="48" r="4"/><circle cx="334" cy="60" r="4"/><circle cx="309" cy="170" r="4"/>
+              </g>
+              <circle cx="334" cy="60" r="5" fill="#f5b971"/>
+            </svg>
+          </div>
+          <div class="card-details">
+            <div class="card-heading">
+              <h2>Mesh Generator</h2>
+              <span class="card-number">02</span>
+            </div>
+          </div>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('mesh-background');
+      const context = canvas.getContext('2d');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const navigationLinks = [...document.querySelectorAll('.pattern-link')];
+      let width = 0;
+      let height = 0;
+      let particles = [];
+      let animationFrame = 0;
+      let lastFrameTime = 0;
+
+      function createParticles() {
+        const area = width * height;
+        const count = Math.max(38, Math.min(115, Math.round(area / 15000)));
+        particles = Array.from({ length: count }, () => ({
+          x: Math.random() * width,
+          y: Math.random() * height,
+          vx: (Math.random() - 0.5) * 0.38,
+          vy: (Math.random() - 0.5) * 0.38,
+          hue: 158 + Math.random() * 27
+        }));
+      }
+
+      function drawMesh(animate) {
+        if (animate) {
+          context.fillStyle = 'rgba(11, 16, 20, 0.2)';
+          context.fillRect(0, 0, width, height);
+          particles.forEach((point) => {
+            point.x += point.vx;
+            point.y += point.vy;
+            if (point.x < 0 || point.x > width) point.vx *= -1;
+            if (point.y < 0 || point.y > height) point.vy *= -1;
+          });
+        }
+
+        const limit = Math.min(145, Math.max(86, Math.hypot(width, height) * 0.075));
+        const limitSquared = limit * limit;
+        for (let i = 0; i < particles.length; i++) {
+          const point = particles[i];
+          for (let j = i + 1; j < particles.length; j++) {
+            const other = particles[j];
+            const dx = point.x - other.x;
+            const dy = point.y - other.y;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared >= limitSquared) continue;
+            const opacity = (1 - Math.sqrt(distanceSquared) / limit) * 0.17;
+            context.beginPath();
+            context.strokeStyle = `hsla(${(point.hue + other.hue) / 2}, 62%, 67%, ${opacity})`;
+            context.lineWidth = 0.8;
+            context.moveTo(point.x, point.y);
+            context.lineTo(other.x, other.y);
+            context.stroke();
+          }
+          context.beginPath();
+          context.fillStyle = `hsla(${point.hue}, 70%, 73%, 0.62)`;
+          context.arc(point.x, point.y, 1.25, 0, Math.PI * 2);
+          context.fill();
+        }
+      }
+
+      function resize() {
+        const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.round(width * ratio);
+        canvas.height = Math.round(height * ratio);
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+        context.fillStyle = '#0b1014';
+        context.fillRect(0, 0, width, height);
+        createParticles();
+        drawMesh(false);
+      }
+
+      function animate(timestamp) {
+        if (reducedMotion.matches) return;
+        if (timestamp - lastFrameTime >= 33) {
+          drawMesh(true);
+          lastFrameTime = timestamp;
+        }
+        animationFrame = window.requestAnimationFrame(animate);
+      }
+
+      function startAnimation() {
+        window.cancelAnimationFrame(animationFrame);
+        if (!reducedMotion.matches) animationFrame = window.requestAnimationFrame(animate);
+      }
+
+      function updateSelectedPattern() {
+        const currentHash = window.location.hash || '#square-maze';
+        navigationLinks.forEach((link) => {
+          if (link.getAttribute('href') === currentHash) {
+            link.setAttribute('aria-current', 'location');
+          } else {
+            link.removeAttribute('aria-current');
+          }
+        });
+      }
+
+      window.addEventListener('resize', resize, { passive: true });
+      window.addEventListener('hashchange', updateSelectedPattern);
+      reducedMotion.addEventListener('change', startAnimation);
+      resize();
+      startAnimation();
+      updateSelectedPattern();
+    })();
+  </script>
+</body>
+</html>

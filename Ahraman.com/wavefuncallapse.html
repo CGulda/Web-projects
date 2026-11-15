@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1014">
+  <meta name="description" content="Generate a connected-edge road tile grid with Wave Function Collapse.">
+  <title>Wave Function Collapse · Ahraman</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="tool-workspace wfc-tool settings-collapsed">
+    <aside class="sidebar app-control-panel" aria-label="Wave Function Collapse settings">
+      <div class="sidebar-top">
+        <button class="sidebar-toggle" id="toggleSettings" type="button" aria-label="Show settings" title="Show settings" aria-expanded="false" aria-controls="settingsPanel">›</button>
+        <h1 class="sidebar-title">Wave Function Collapse</h1>
+      </div>
+      <div class="sidebar-content" id="settingsPanel" hidden>
+        <p class="intro">Generate a grid of road tiles with matching connections.</p>
+        <section class="controls" aria-label="Grid settings">
+          <div class="field">
+            <label for="pageSize">Page size</label>
+            <select id="pageSize">
+              <option value="current" selected>Current page</option>
+              <option value="A4">A4 · 300 DPI</option>
+              <option value="A5">A5 · 300 DPI</option>
+              <option value="FHD">FHD · 1080p</option>
+              <option value="4K">4K · UHD</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="gridShape">Grid shape</label>
+            <select id="gridShape">
+              <option value="triangle">Triangles</option>
+              <option value="square">Squares</option>
+              <option value="hexagon" selected>Hexagons</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="cellSize">Cell size <output id="cellSizeValue" for="cellSize">42 px</output></label>
+            <input id="cellSize" type="range" min="12" max="72" value="42">
+          </div>
+          <div class="field">
+            <label for="pathWidth">Path width <output id="pathWidthValue" for="pathWidth">42%</output></label>
+            <input id="pathWidth" type="range" min="4" max="80" step="2" value="42">
+          </div>
+          <label class="check-row" for="rounded">
+            <input id="rounded" type="checkbox" checked>
+            Rounded turns
+          </label>
+          <div class="field">
+            <label for="innerWidth">Inner path <output id="innerWidthValue" for="innerWidth">80%</output></label>
+            <input id="innerWidth" type="range" min="0" max="90" step="5" value="80" aria-describedby="innerWidthHint">
+            <p class="hint" id="innerWidthHint">Width relative to the path; 0% makes paths solid.</p>
+          </div>
+          <div class="field">
+            <label for="symmetry">Symmetry</label>
+            <select id="symmetry">
+              <option value="random">Random</option>
+              <option value="mirror">Mirror · vertical axis</option>
+              <option value="symmetric">Symmetric · both axes</option>
+              <option value="hexagonal" selected>Hexagonal · sixfold kaleidoscope</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="seed">Random seed</label>
+            <input id="seed" type="number" min="0" max="999999" step="1" required>
+          </div>
+          <label class="check-row" for="animated">
+            <input id="animated" type="checkbox" checked>
+            Animate filling
+          </label>
+          <button id="randomize" type="button">Randomize seed</button>
+          <button class="primary" id="generate" type="button">Generate grid</button>
+          <button id="savePNG" type="button">Save black-and-white PNG</button>
+          <button id="shareSettings" type="button">Copy settings link</button>
+          <div class="field" id="settingsLinkField" hidden>
+            <label for="settingsLink">Settings link</label>
+            <input id="settingsLink" type="url" readonly>
+          </div>
+          <p class="hint" id="gridHint">Cell size is measured in artwork pixels. Mirrored grids start at the center; roads may exit the grid.</p>
+          <p class="hint">Current-page links adapt to available space. Resizing a current-page artwork regenerates it with the same seed.</p>
+          <p class="status" id="status" role="status" aria-live="polite"></p>
+        </section>
+        <a class="gallery-link" href="index.html">← All patterns</a>
+      </div>
+    </aside>
+    <main class="stage" aria-label="Generated road grid">
+      <canvas id="grid" width="800" height="800" role="img" aria-label="Generated road grid"></canvas>
+    </main>
+  <script src="artwork.js"></script>
+  <script src="wavefuncallapse.js"></script>
+  <script>
+    (() => {
+      if (!globalThis.AhramanWFC || !globalThis.AhramanArtwork) {
+        const status = document.getElementById('status');
+        const toggle = document.getElementById('toggleSettings');
+        status.textContent = 'Could not load the artwork scripts. Keep artwork.js and wavefuncallapse.js next to this page.';
+        status.dataset.state = 'error';
+        document.body.classList.remove('settings-collapsed');
+        document.getElementById('settingsPanel').hidden = false;
+        document.querySelectorAll('#settingsPanel input, #settingsPanel select, #settingsPanel button')
+          .forEach(control => { control.disabled = true; });
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Settings unavailable');
+        toggle.title = 'Settings unavailable';
+        toggle.textContent = '‹';
+        toggle.disabled = true;
+        return;
+      }
+      const { directions, viewportDimensions, generateViewportSteps, randomGenerator, roadPath } = AhramanWFC;
+      const canvas = document.getElementById('grid');
+      const { pageSizes, pageDimensions, fitCanvas, savePng } = AhramanArtwork;
+      const context = canvas.getContext('2d');
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const base = document.createElement('canvas');
+      const outer = document.createElement('canvas');
+      const inner = document.createElement('canvas');
+      const baseContext = base.getContext('2d');
+      const outerContext = outer.getContext('2d');
+      const innerContext = inner.getContext('2d');
+      const shapeInput = document.getElementById('gridShape');
+      const pageSize = document.getElementById('pageSize');
+      const sizeInput = document.getElementById('cellSize');
+      const sizeValue = document.getElementById('cellSizeValue');
+      const widthInput = document.getElementById('pathWidth');
+      const widthValue = document.getElementById('pathWidthValue');
+      const roundedInput = document.getElementById('rounded');
+      const innerWidthInput = document.getElementById('innerWidth');
+      const innerWidthValue = document.getElementById('innerWidthValue');
+      const symmetryInput = document.getElementById('symmetry');
+      const hexSymmetryOption = symmetryInput.querySelector('option[value="hexagonal"]');
+      const seedInput = document.getElementById('seed');
+      seedInput.value = String(Math.floor(Math.random() * 1000000));
+      const animatedInput = document.getElementById('animated');
+      const status = document.getElementById('status');
+      const gridHint = document.getElementById('gridHint');
+      const workspace = document.body;
+      const stage = document.querySelector('.stage');
+      const settingsPanel = document.getElementById('settingsPanel');
+      const settingsToggle = document.getElementById('toggleSettings');
+      function setSettingsOpen(open) {
+        workspace.classList.toggle('settings-collapsed', !open);
+        settingsPanel.hidden = !open;
+        settingsToggle.setAttribute('aria-expanded', String(open));
+        settingsToggle.setAttribute('aria-label', open ? 'Hide settings' : 'Show settings');
+        settingsToggle.title = open ? 'Hide settings' : 'Show settings';
+        settingsToggle.textContent = open ? '‹' : '›';
+      }
+      settingsToggle.addEventListener('click', () => setSettingsOpen(settingsPanel.hidden));
+      let frame = 0;
+      let generationTimer = 0;
+      let finishAnimation = null;
+      let displayCells = [];
+      let displayOrder = [];
+      let displayCellSize = 50;
+      let displayDimensions = null;
+      let displayShape = 'square';
+      let artworkWidth = 0;
+      let artworkHeight = 0;
+      let artworkRatio = 0;
+      let linkWarning = '';
+      let generationComplete = false;
+
+      function resizeArtwork() {
+        const { width, height } = pageDimensions(pageSize.value, stage);
+        const ratio = pageSize.value === 'current' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+        fitCanvas(canvas, stage, width, height, pageSize.value === 'current');
+        if (width === artworkWidth && height === artworkHeight && ratio === artworkRatio) return;
+        artworkWidth = width;
+        artworkHeight = height;
+        artworkRatio = ratio;
+        for (const layer of [canvas, base, outer, inner]) {
+          layer.width = Math.round(width * ratio);
+          layer.height = Math.round(height * ratio);
+        }
+        for (const layerContext of [context, baseContext, outerContext, innerContext]) {
+          layerContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+        }
+      }
+
+      function drawRoad(points, center, width) {
+        const path = new Path2D(roadPath(points, center, roundedInput.checked ? 50 : 0));
+        outerContext.strokeStyle = '#73e5c4';
+        outerContext.lineWidth = width;
+        outerContext.lineCap = 'round';
+        outerContext.lineJoin = 'round';
+        outerContext.stroke(path);
+        const innerWidth = width * Number(innerWidthInput.value) / 100;
+        if (innerWidth > 0) {
+          innerContext.strokeStyle = '#0d1418';
+          innerContext.lineWidth = innerWidth;
+          innerContext.lineCap = 'round';
+          innerContext.lineJoin = 'round';
+          innerContext.stroke(path);
+        }
+      }
+
+      function paintGrid(cells, shape, updates) {
+        if (shape === 'hexagon') drawHexagons(cells, updates);
+        else if (shape === 'triangle') drawTriangles(cells, updates);
+        else drawSquares(cells, updates);
+      }
+
+      function drawGrid(cells, shape, updates = null) {
+        if (!updates) {
+          outerContext.clearRect(0, 0, artworkWidth, artworkHeight);
+          innerContext.clearRect(0, 0, artworkWidth, artworkHeight);
+        }
+        paintGrid(cells, shape, updates);
+        context.drawImage(base, 0, 0, artworkWidth, artworkHeight);
+        context.drawImage(outer, 0, 0, artworkWidth, artworkHeight);
+        context.drawImage(inner, 0, 0, artworkWidth, artworkHeight);
+      }
+
+      function drawSquares(cells, updates) {
+        const { columns, rows } = displayDimensions;
+        const step = displayCellSize;
+        const offsetX = (artworkWidth - step * columns) / 2;
+        const offsetY = (artworkHeight - step * rows) / 2;
+        if (!updates) {
+          baseContext.fillStyle = '#0d1418';
+          baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
+          baseContext.strokeStyle = 'rgba(216, 244, 236, 0.13)';
+          baseContext.lineWidth = 1;
+          baseContext.beginPath();
+          for (let index = 0; index <= columns; index++) {
+            const x = offsetX + step * index;
+            baseContext.moveTo(x, 0);
+            baseContext.lineTo(x, artworkHeight);
+          }
+          for (let index = 0; index <= rows; index++) {
+            const y = offsetY + step * index;
+            baseContext.moveTo(0, y);
+            baseContext.lineTo(artworkWidth, y);
+          }
+          baseContext.stroke();
+        }
+        const roadWidth = step * Number(widthInput.value) / 100;
+        function drawTile(mask, index) {
+          if (!mask) return;
+          const x = offsetX + (index % columns) * step;
+          const y = offsetY + Math.floor(index / columns) * step;
+          const points = directions.filter(direction => mask & direction.bit)
+            .map(direction => [x + direction.x * step, y + direction.y * step]);
+          drawRoad(points, [x + step / 2, y + step / 2], roadWidth);
+        }
+        if (updates) updates.forEach(({ mask, index }) => drawTile(mask, index));
+        else displayOrder.forEach(index => drawTile(cells[index], index));
+      }
+
+      function drawTriangles(cells, updates) {
+        const { columns, rows } = displayDimensions;
+        const side = displayCellSize;
+        const height = side * Math.sqrt(3) / 2;
+        const offsetX = (artworkWidth - side * (columns + 1) / 2) / 2;
+        const offsetY = (artworkHeight - rows * height) / 2;
+        if (!updates) {
+          baseContext.fillStyle = '#0d1418';
+          baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
+          baseContext.strokeStyle = 'rgba(216, 244, 236, 0.13)';
+          baseContext.lineWidth = 1;
+          baseContext.beginPath();
+          for (let row = 0; row <= rows; row++) {
+            const y = offsetY + row * height;
+            baseContext.moveTo(0, y);
+            baseContext.lineTo(artworkWidth, y);
+          }
+          const diagonalSpan = rows * side / 2;
+          for (let x = offsetX + side / 2 - diagonalSpan; x <= artworkWidth + diagonalSpan; x += side) {
+            baseContext.moveTo(x, offsetY);
+            baseContext.lineTo(x + diagonalSpan, offsetY + rows * height);
+            baseContext.moveTo(x, offsetY);
+            baseContext.lineTo(x - diagonalSpan, offsetY + rows * height);
+          }
+          baseContext.stroke();
+        }
+        const roadWidth = side * Math.sqrt(3) / 3 * Number(widthInput.value) / 100;
+        function drawTile(mask, index) {
+          if (!mask) return;
+          const column = index % columns;
+          const row = Math.floor(index / columns);
+          const x = offsetX + column * side / 2;
+          const y = offsetY + row * height;
+          const up = (column + row) % 2 === 0;
+          const centerX = x + side / 2;
+          const centerY = y + height * (up ? 2 / 3 : 1 / 3);
+          const endpoints = [
+            [x + side / 4, y + height / 2],
+            [x + side * 3 / 4, y + height / 2],
+            [centerX, y + (up ? height : 0)]
+          ];
+          drawRoad(endpoints.filter((point, edge) => mask & (1 << edge)), [centerX, centerY], roadWidth);
+        }
+        if (updates) updates.forEach(({ mask, index }) => drawTile(mask, index));
+        else displayOrder.forEach(index => drawTile(cells[index], index));
+      }
+
+      function drawHexagons(cells, updates) {
+        const side = displayCellSize / Math.sqrt(3);
+        const positions = displayDimensions.positions;
+        const center = index => {
+          const { q, r } = positions[index];
+          return [artworkWidth / 2 + displayCellSize * (q + r / 2),
+            artworkHeight / 2 + displayCellSize * Math.sqrt(3) / 2 * r];
+        };
+        if (!updates) {
+          baseContext.fillStyle = '#0d1418';
+          baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
+          // A hex grid repeats after two staggered rows.
+          const tile = document.createElement('canvas');
+          const tileHeight = 3 * side;
+          tile.width = Math.ceil(displayCellSize * 2);
+          tile.height = Math.ceil(tileHeight * 2);
+          const tileContext = tile.getContext('2d');
+          tileContext.setTransform(tile.width / displayCellSize, 0, 0, tile.height / tileHeight, 0, 0);
+          tileContext.strokeStyle = 'rgba(216, 244, 236, 0.13)';
+          tileContext.lineWidth = 1;
+          tileContext.beginPath();
+          for (let row = 0; row <= 2; row++) {
+            const y = row * 1.5 * side;
+            for (let column = -1; column <= 1; column++) {
+              const x = (column + (row % 2) / 2) * displayCellSize;
+              for (let vertex = 0; vertex < 6; vertex++) {
+                const angle = -Math.PI / 2 + vertex * Math.PI / 3;
+                const pointX = x + side * Math.cos(angle);
+                const pointY = y + side * Math.sin(angle);
+                if (vertex === 0) tileContext.moveTo(pointX, pointY);
+                else tileContext.lineTo(pointX, pointY);
+              }
+              tileContext.closePath();
+            }
+          }
+          tileContext.stroke();
+          const pattern = baseContext.createPattern(tile, 'repeat');
+          pattern.setTransform(new DOMMatrix([
+            displayCellSize / tile.width, 0, 0, tileHeight / tile.height,
+            artworkWidth / 2, artworkHeight / 2
+          ]));
+          baseContext.fillStyle = pattern;
+          baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
+        }
+        const roadWidth = displayCellSize * Number(widthInput.value) / 100;
+        function drawTile(mask, index) {
+          if (!mask) return;
+          const [x, y] = center(index);
+          const points = [];
+          for (let edge = 0; edge < 6; edge++) {
+            if (!(mask & (1 << edge))) continue;
+            const angle = edge * Math.PI / 3;
+            points.push([x + displayCellSize / 2 * Math.cos(angle), y + displayCellSize / 2 * Math.sin(angle)]);
+          }
+          drawRoad(points, [x, y], roadWidth);
+        }
+        if (updates) updates.forEach(({ mask, index }) => drawTile(mask, index));
+        else displayOrder.forEach(index => drawTile(cells[index], index));
+      }
+
+      function generate() {
+        generationComplete = false;
+        cancelAnimationFrame(frame);
+        clearTimeout(generationTimer);
+        frame = 0;
+        generationTimer = 0;
+        finishAnimation = null;
+        const seed = Number(seedInput.value);
+        if (!seedInput.validity.valid || !Number.isInteger(seed) || seed < 0 || seed > 999999) {
+          canvas.setAttribute('aria-label', 'Road grid generation stopped: invalid seed');
+          status.textContent = 'Random seed must be a whole number from 0 to 999999.';
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+          return;
+        }
+        resizeArtwork();
+        const cellSize = Number(sizeInput.value);
+        const shape = shapeInput.value;
+        const dimensions = viewportDimensions(artworkWidth, artworkHeight, cellSize, shape, symmetryInput.value);
+        const count = dimensions.count;
+        const description = shape === 'hexagon'
+          ? `${count} hexagonal tiles`
+          : shape === 'triangle'
+          ? `${dimensions.columns} × ${dimensions.rows} triangular tiles`
+          : `${dimensions.columns} × ${dimensions.rows} road grid`;
+        const iterator = generateViewportSteps(dimensions, randomGenerator(seed), symmetryInput.value);
+        displayCellSize = cellSize;
+        displayDimensions = dimensions;
+        displayShape = shape;
+        displayCells = Array(count).fill(null);
+        displayOrder = [];
+        drawGrid(displayCells, shape);
+        canvas.setAttribute('aria-label', `Generating ${description}`);
+        status.textContent = 'Generating road grid…';
+        status.dataset.state = '';
+
+        function advance(animate) {
+          const batch = animate ? Math.max(1, Math.ceil(count / 480)) : Infinity;
+          const started = performance.now();
+          let processed = 0;
+          let complete = false;
+          const updates = [];
+          do {
+            const next = iterator.next();
+            if (next.done) {
+              complete = true;
+              break;
+            }
+            for (const update of next.value) {
+              displayCells[update.index] = update.mask;
+              displayOrder.push(update.index);
+              updates.push(update);
+            }
+            processed++;
+          } while (processed < batch && performance.now() - started < 8);
+          if (animate || complete) drawGrid(displayCells, shape, updates);
+          else paintGrid(displayCells, shape, updates);
+          if (complete) {
+            generationComplete = true;
+            frame = 0;
+            finishAnimation = null;
+            canvas.setAttribute('aria-label', `Generated ${description}`);
+            status.textContent = linkWarning || `${description} generated.`;
+            status.dataset.state = linkWarning ? 'error' : 'success';
+          } else if (animate) {
+            frame = requestAnimationFrame(() => run(true));
+          } else {
+            generationTimer = setTimeout(() => {
+              generationTimer = 0;
+              run(false);
+            }, 0);
+          }
+        }
+
+        function run(animate) {
+          try {
+            advance(animate);
+          } catch (error) {
+            frame = 0;
+            generationTimer = 0;
+            finishAnimation = null;
+            canvas.setAttribute('aria-label', 'Road grid generation failed');
+            status.textContent = `Could not generate the road grid: ${error.message}`;
+            status.dataset.state = 'error';
+            setSettingsOpen(true);
+          }
+        }
+
+        if (animatedInput.checked && !reducedMotion.matches) {
+          finishAnimation = () => run(false);
+          frame = requestAnimationFrame(() => run(true));
+        } else {
+          run(false);
+        }
+      }
+
+      function updatePathStyle() {
+        const width = Number(widthInput.value);
+        widthValue.textContent = `${width}%`;
+        innerWidthValue.textContent = `${innerWidthInput.value}%`;
+        if (displayDimensions) drawGrid(displayCells, displayShape);
+      }
+
+      function updateSizeLabel() {
+        sizeValue.textContent = `${sizeInput.value} px`;
+      }
+
+      function restoreSettings() {
+        const params = new URLSearchParams(window.location.search);
+        const invalid = [];
+        for (const [key, input] of [['page', pageSize], ['shape', shapeInput], ['symmetry', symmetryInput]]) {
+          if (!params.has(key)) continue;
+          if ([...input.options].some(option => option.value === params.get(key))) input.value = params.get(key);
+          else invalid.push(key);
+        }
+        for (const [key, input, min, max, step] of [
+          ['cellSize', sizeInput, 12, 72, 1], ['pathWidth', widthInput, 4, 80, 2],
+          ['innerWidth', innerWidthInput, 0, 90, 5], ['seed', seedInput, 0, 999999, 1]
+        ]) {
+          if (!params.has(key)) continue;
+          const raw = params.get(key).trim();
+          const value = Number(raw);
+          if (raw && Number.isFinite(value) && value >= min && value <= max &&
+              Number.isInteger((value - min) / step)) input.value = String(value);
+          else invalid.push(key);
+        }
+        for (const [key, input] of [['rounded', roundedInput], ['animated', animatedInput]]) {
+          if (!params.has(key)) continue;
+          const value = params.get(key);
+          if (value === '0' || value === '1') input.checked = value === '1';
+          else invalid.push(key);
+        }
+        if (shapeInput.value !== 'hexagon' && symmetryInput.value === 'hexagonal') {
+          if (params.has('symmetry')) invalid.push('symmetry');
+          symmetryInput.value = 'symmetric';
+        }
+        return invalid;
+      }
+
+      async function copySettingsLink() {
+        if (!seedInput.validity.valid || !Number.isInteger(Number(seedInput.value))) {
+          status.textContent = 'Random seed must be a whole number from 0 to 999999.';
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+          return;
+        }
+        const url = new URL(window.location.href);
+        url.search = new URLSearchParams({
+          page: pageSize.value, shape: shapeInput.value, cellSize: sizeInput.value,
+          pathWidth: widthInput.value, innerWidth: innerWidthInput.value,
+          rounded: roundedInput.checked ? '1' : '0', symmetry: symmetryInput.value,
+          seed: seedInput.value, animated: animatedInput.checked ? '1' : '0'
+        }).toString();
+        url.hash = '';
+        const field = document.getElementById('settingsLinkField');
+        const input = document.getElementById('settingsLink');
+        input.value = url.toString();
+        field.hidden = false;
+        input.select();
+        try {
+          await navigator.clipboard.writeText(input.value);
+          status.textContent = 'Settings link copied.';
+          status.dataset.state = 'success';
+        } catch (error) {
+          status.textContent = `The link is ready below, but could not be copied automatically: ${error.message}`;
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+        }
+      }
+
+      async function savePNG() {
+        if (!displayDimensions || !generationComplete) {
+          status.textContent = 'Wait for the grid to finish generating before saving.';
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+          return;
+        }
+        try {
+          const snapshot = document.createElement('canvas');
+          snapshot.width = artworkWidth;
+          snapshot.height = artworkHeight;
+          const target = snapshot.getContext('2d');
+          target.fillStyle = '#000000';
+          target.fillRect(0, 0, artworkWidth, artworkHeight);
+          target.globalCompositeOperation = 'destination-in';
+          target.drawImage(outer, 0, 0, artworkWidth, artworkHeight);
+          target.globalCompositeOperation = 'destination-out';
+          target.drawImage(inner, 0, 0, artworkWidth, artworkHeight);
+          target.globalCompositeOperation = 'destination-over';
+          target.fillStyle = '#ffffff';
+          target.fillRect(0, 0, artworkWidth, artworkHeight);
+          const preset = pageSizes[pageSize.value];
+          await savePng(snapshot, `wfc-${displayShape}-${artworkWidth}x${artworkHeight}-${seedInput.value}.png`, preset && preset.dpi);
+          status.textContent = `Saved ${snapshot.width.toLocaleString()} × ${snapshot.height.toLocaleString()} px PNG.`;
+          status.dataset.state = 'success';
+        } catch (error) {
+          status.textContent = error.message;
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+        }
+      }
+
+      settingsPanel.addEventListener('change', () => { linkWarning = ''; }, true);
+      pageSize.addEventListener('change', generate);
+      sizeInput.addEventListener('input', updateSizeLabel);
+      sizeInput.addEventListener('change', generate);
+      widthInput.addEventListener('input', updatePathStyle);
+      innerWidthInput.addEventListener('input', updatePathStyle);
+      roundedInput.addEventListener('change', updatePathStyle);
+      seedInput.addEventListener('change', generate);
+      symmetryInput.addEventListener('change', generate);
+      function updateGridHint() {
+        const triangle = shapeInput.value === 'triangle';
+        const hexagon = shapeInput.value === 'hexagon';
+        gridHint.textContent = triangle
+          ? 'Cell size is the triangle side in artwork pixels. Mirrored grids start at the center; roads may exit the grid.'
+          : hexagon
+          ? 'Cell size is the hexagon width across flats in artwork pixels. Mirrored grids start at the center; roads may exit the grid.'
+          : 'Cell size is the square side in artwork pixels. Mirrored grids start at the center; roads may exit the grid.';
+      }
+      function updateSymmetryOptions(previousShape) {
+        const isHex = shapeInput.value === 'hexagon';
+        hexSymmetryOption.hidden = !isHex;
+        hexSymmetryOption.disabled = !isHex;
+        if (!isHex && symmetryInput.value === 'hexagonal') symmetryInput.value = 'symmetric';
+        else if (isHex && previousShape && symmetryInput.value === 'symmetric') symmetryInput.value = 'hexagonal';
+      }
+      let previousShape = shapeInput.value;
+      shapeInput.addEventListener('change', () => {
+        updateSymmetryOptions(previousShape);
+        previousShape = shapeInput.value;
+        updatePathStyle();
+        updateSizeLabel();
+        updateGridHint();
+        generate();
+      });
+      animatedInput.addEventListener('change', () => {
+        if (!animatedInput.checked && frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+          finishAnimation();
+        }
+      });
+      reducedMotion.addEventListener('change', () => {
+        if (reducedMotion.matches && frame && finishAnimation) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+          finishAnimation();
+        }
+      });
+      document.getElementById('randomize').addEventListener('click', () => {
+        const currentSeed = Number(seedInput.value);
+        let nextSeed = Math.floor(Math.random() * 1000000);
+        if (nextSeed === currentSeed) nextSeed = (nextSeed + 1) % 1000000;
+        seedInput.value = String(nextSeed);
+        generate();
+      });
+      document.getElementById('generate').addEventListener('click', generate);
+      document.getElementById('savePNG').addEventListener('click', savePNG);
+      document.getElementById('shareSettings').addEventListener('click', copySettingsLink);
+      const invalidLinkSettings = restoreSettings();
+      previousShape = shapeInput.value;
+      updateSymmetryOptions();
+      if (invalidLinkSettings.length) {
+        linkWarning = `Invalid link settings ignored: ${invalidLinkSettings.join(', ')}.`;
+        setSettingsOpen(true);
+      }
+      updateSizeLabel();
+      updateGridHint();
+      updatePathStyle();
+      generate();
+      let resizeTimer = 0;
+      function scheduleResize() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const { width, height } = pageDimensions(pageSize.value, stage);
+          fitCanvas(canvas, stage, width, height, pageSize.value === 'current');
+          if (width !== artworkWidth || height !== artworkHeight) generate();
+        }, 200);
+      }
+      if (typeof ResizeObserver !== 'undefined') new ResizeObserver(scheduleResize).observe(stage);
+      else window.addEventListener('resize', scheduleResize);
+    })();
+  </script>
+</body>
+</html>
