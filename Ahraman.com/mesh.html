@@ -27,6 +27,7 @@
 
     body.settings-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
     .sidebar {
+      position: relative;
       z-index: 1;
       display: flex;
       min-height: 0;
@@ -45,11 +46,12 @@
     }
 
     .sidebar-toggle {
+      position: absolute;
+      top: 22px;
+      right: 18px;
       display: grid;
       width: 40px;
       min-height: 40px;
-      flex: 0 0 auto;
-      align-self: flex-end;
       place-items: center;
       padding: 0;
       color: var(--accent);
@@ -58,22 +60,10 @@
     .settings-collapsed .sidebar { align-items: center; padding: 12px 8px; }
     .settings-collapsed .sidebar > header,
     .settings-collapsed .sidebar > .controls { display: none; }
-    .settings-collapsed .sidebar-toggle { align-self: center; }
-    .sidebar header { display: flex; align-items: flex-start; gap: 12px; }
+    .settings-collapsed .sidebar-toggle { position: static; }
+    .sidebar header { display: flex; align-items: flex-start; padding-right: 50px; }
     h1 { margin: 7px 0 4px; font-size: 1.45rem; letter-spacing: -0.04em; }
     .intro, .hint { margin: 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; }
-    .brand-mark {
-      display: grid;
-      width: 42px;
-      height: 42px;
-      flex: 0 0 auto;
-      place-items: center;
-      border: 1px solid rgb(115 229 196 / 30%);
-      border-radius: 13px;
-      color: var(--accent);
-      background: rgb(115 229 196 / 8%);
-    }
-    .brand-mark svg { width: 26px; height: 26px; }
     .controls { display: grid; gap: 14px; }
     .field { display: grid; gap: 7px; }
     .field > label, .field-heading {
@@ -115,6 +105,7 @@
     .button-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .button-stack button { padding: 10px 8px; font-size: 0.8rem; }
     .button-stack .primary { grid-column: 1 / -1; }
+    .controls > #randomize { grid-column: 1 / -1; }
     .status { min-height: 1.3em; margin: 0; color: var(--text-muted); font-size: 0.77rem; line-height: 1.4; }
     .status[data-state="error"] { color: #ff9a9a; }
     .status[data-state="success"] { color: var(--accent); }
@@ -136,6 +127,7 @@
       body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 52dvh); }
       .stage { grid-row: 1; }
       .sidebar {
+        position: relative;
         grid-row: 2;
         height: auto;
         min-height: 0;
@@ -143,6 +135,7 @@
         border-top: 1px solid var(--border);
         border-right: 0;
       }
+      .sidebar-toggle { top: 14px; right: 18px; }
       body.settings-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 56px; }
       .settings-collapsed .sidebar {
         grid-column: 1;
@@ -157,10 +150,9 @@
         border-right: 0;
         border-bottom: 0;
       }
-      .settings-collapsed .sidebar-toggle { align-self: center; }
+      .settings-collapsed .sidebar-toggle { position: static; }
       .settings-collapsed .stage { grid-column: 1; grid-row: 1; }
-      .sidebar header { align-items: center; }
-      .brand-mark { width: 36px; height: 36px; }
+      .sidebar header { align-items: flex-start; }
       h1 { margin-top: 0; font-size: 1.2rem; }
       .intro { font-size: 0.76rem; }
       .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 14px; }
@@ -185,11 +177,6 @@
   <aside class="sidebar" aria-label="Mesh generator controls">
     <button class="sidebar-toggle" id="toggleSettings" type="button" aria-label="Hide settings" aria-expanded="true" title="Hide settings">‹</button>
     <header>
-      <a class="brand-mark" href="index.html" aria-label="Back to patterns" title="Back to patterns">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M19 12H5m0 0 6 6m-6-6 6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </a>
       <div>
         <h1>Mesh Generator</h1>
         <p class="intro">Shape a living network of color, light, and motion.</p>
@@ -197,6 +184,9 @@
     </header>
 
     <section class="controls" aria-label="Mesh settings">
+      <p class="section-heading">Presets</p>
+      <div class="preset-grid" id="presets" aria-label="Mesh presets"></div>
+      <button class="primary" id="randomize" type="button">Randomize</button>
       <p class="section-heading">Structure &amp; motion</p>
       <div class="field">
         <label for="pointCount">Particle count <span class="value" id="pointCountValue"></span></label>
@@ -229,8 +219,8 @@
         </div>
       </div>
       <div class="field">
-        <label for="intensity">Color intensity <span class="value" id="intensityValue"></span></label>
-        <input id="intensity" type="range" min="20" max="100" value="72">
+        <label for="intensity" title="Sets the HSL lightness of particles.">Color lightness <span class="value" id="intensityValue"></span></label>
+        <input id="intensity" type="range" min="0" max="100" value="72">
       </div>
       <div class="toggle-grid">
         <label class="toggle-row"><input id="centerStart" type="checkbox"> Start at center</label>
@@ -238,15 +228,11 @@
         <label class="toggle-row"><input id="constantSpeed" type="checkbox" checked> Constant speed</label>
         <label class="toggle-row"><input id="blackHole" type="checkbox"> Black hole</label>
       </div>
-      <p class="section-heading">Presets</p>
-      <div class="preset-grid" id="presets" aria-label="Mesh presets"></div>
       <div class="field">
         <label for="seed">Random seed</label>
         <input id="seed" type="number" min="0" max="999999" step="1">
       </div>
       <div class="button-stack">
-        <button class="primary" id="randomize" type="button">Randomize</button>
-        <button id="restart" type="button">Restart</button>
         <button id="share" type="button">Copy settings link</button>
       </div>
       <div class="share-field" id="shareField" hidden>
@@ -279,15 +265,31 @@
         blackHole: document.getElementById('blackHole'),
         seed: document.getElementById('seed')
       };
+      const presetKeys = [
+        'pointCount', 'linkRange', 'pointSize', 'speed', 'trails', 'hue', 'variation', 'intensity',
+        'centerStart', 'symmetric', 'constantSpeed'
+      ];
+      const numericLimits = {
+        pointCount: [10, 180],
+        linkRange: [25, 240],
+        pointSize: [0, 5],
+        speed: [1, 12],
+        trails: [0, 100],
+        hue: [0, 360],
+        variation: [0, 180],
+        intensity: [0, 100],
+        seed: [0, 999999]
+      };
       const presets = [
-        { name: 'Default', values: [100, 110, 1.5, 3, 78, 165, 35, 72, false, false, true] },
-        { name: 'Violet', values: [80, 90, 2, 2, 88, 275, 24, 68, false, false, true] },
-        { name: 'Starfield', values: [48, 190, 1, 5, 90, 198, 12, 86, true, false, true] },
-        { name: 'Orbit', values: [72, 125, 1.5, 2, 82, 42, 42, 76, true, true, false] },
-        { name: 'Deep sea', values: [120, 84, 2, 2, 72, 190, 50, 62, false, false, true] },
-        { name: 'Solar', values: [104, 92, 2.5, 3, 91, 34, 22, 88, false, true, true], blackHole: true },
-        { name: 'Ember', values: [88, 105, 2, 6, 74, 12, 28, 70, false, true, false] },
-        { name: 'Monochrome', values: [110, 95, 1, 2, 91, 190, 0, 88, false, false, true] }
+        { name: 'Violet', values: [80, 90, 2, 2, 88, 275, 24, 50, false, false, true] },
+        { name: 'Ring', values: [150, 60, 0, 1, 10, 42, 24, 36, true, true, true] },
+        { name: 'Orbit', values: [180, 25, 4.5, 3, 100, 175, 50, 50, false, true, true], blackHole: true },
+        { name: 'Sea', values: [120, 84, 0, 7, 95, 215, 35, 45, false, false, true] },
+        { name: 'Ember', values: [88, 105, 2, 6, 74, 12, 28, 50, false, true, false] },
+        { name: 'Black hole', values: [104, 92, 2.5, 3, 91, 34, 22, 50, false, true, true], blackHole: true },
+        { name: 'Monochrome', values: [110, 95, 1, 2, 91, 190, 0, 88, false, true, true] },
+        { name: 'Candy', values: [120, 198, 1.5, 2, 100, 304, 93, 50, true, true, true] },
+        { name: 'Matrix', values: [150, 76, 1, 8, 70, 125, 24, 50, false, false, true] }
       ];
       const labels = {
         pointCount: value => `${value} nodes`,
@@ -331,34 +333,39 @@
       }
 
       function readSettings() {
-        if (!controls.seed.value.trim()) throw new Error('Random seed is required.');
-        const values = {
-          pointCount: Number(controls.pointCount.value),
-          linkRange: Number(controls.linkRange.value),
-          pointSize: Number(controls.pointSize.value),
-          speed: Number(controls.speed.value),
-          trails: Number(controls.trails.value),
-          hue: Number(controls.hue.value),
-          variation: Number(controls.variation.value),
-          intensity: Number(controls.intensity.value),
+        const values = Object.fromEntries(Object.keys(numericLimits).map(key => [
+          key,
+          readNumericSetting(key)
+        ]));
+        return {
+          ...values,
           centerStart: controls.centerStart.checked,
           symmetric: controls.symmetric.checked,
           constantSpeed: controls.constantSpeed.checked,
           blackHole: controls.blackHole.checked,
-          seed: Number(controls.seed.value)
         };
-        const limits = {
-          pointCount: [10, 180], linkRange: [25, 240], pointSize: [0, 5], speed: [1, 12],
-          trails: [0, 100], hue: [0, 360], variation: [0, 180], intensity: [20, 100],
-          seed: [0, 999999]
-        };
-        for (const [key, [min, max]] of Object.entries(limits)) {
-          if (!Number.isFinite(values[key]) || values[key] < min || values[key] > max) {
-            throw new Error(`${key} must be between ${min} and ${max}.`);
+      }
+
+      function readNumericSetting(key) {
+        return parseNumericSetting(key, controls[key].value);
+      }
+
+      function parseNumericSetting(key, rawValue) {
+        const input = controls[key];
+        rawValue = String(rawValue).trim();
+        if (!rawValue) throw new Error(key === 'seed' ? 'Random seed is required.' : `${key} is required.`);
+        const value = Number(rawValue);
+        const [min, max] = numericLimits[key];
+        const step = Number(input.step) || 1;
+        const onStep = Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-8;
+        if (!Number.isFinite(value) || value < min || value > max || !onStep ||
+            (key === 'seed' && !Number.isInteger(value))) {
+          if (key === 'seed' && !Number.isInteger(value)) {
+            throw new Error('Random seed must be a whole number.');
           }
+          throw new Error(`${key} must be between ${min} and ${max}.`);
         }
-        if (!Number.isInteger(values.seed)) throw new Error('Random seed must be a whole number.');
-        return values;
+        return value;
       }
 
       function updateLabels() {
@@ -370,7 +377,7 @@
       function makePoint(x, y, settings) {
         const hue = (settings.hue + (state.random() * 2 - 1) * settings.variation + 360) % 360;
         const angle = state.random() * Math.PI * 2;
-        const baseSpeed = Number(settings.speed) * 0.32;
+        const baseSpeed = settings.speed * 0.32;
         const magnitude = settings.constantSpeed ? baseSpeed : baseSpeed * (0.55 + state.random() * 0.9);
         const velocity = {
           x: Math.cos(angle) * magnitude,
@@ -381,7 +388,7 @@
           vx: velocity.x,
           vy: velocity.y,
           hue,
-          lightness: 27 + settings.intensity * 0.38
+          lightness: settings.intensity
         };
       }
 
@@ -438,12 +445,13 @@
         context.fillRect(0, 0, state.width, state.height);
         const range = settings.linkRange;
         const rangeSquared = range * range;
-        const holeRadius = Math.max(12, Math.min(24, Math.min(state.width, state.height) * 0.045));
+        const holeRadius = getBlackHoleRadius();
+        const captureRadius = holeRadius + 5;
         for (let index = 0; index < state.points.length; index++) {
           let point = state.points[index];
           if (settings.blackHole) {
             const distance = Math.hypot(state.width / 2 - point.x, state.height / 2 - point.y);
-            if (distance <= holeRadius) {
+            if (distance <= captureRadius) {
               state.points[index] = respawnAtCanvasEdge(settings);
               continue;
             }
@@ -464,7 +472,7 @@
               : 0;
             const nearestX = previousX + moveX * closest;
             const nearestY = previousY + moveY * closest;
-            if (Math.hypot(centerX - nearestX, centerY - nearestY) <= holeRadius) {
+            if (Math.hypot(centerX - nearestX, centerY - nearestY) <= captureRadius) {
               state.points[index] = respawnAtCanvasEdge(settings);
             }
           } else {
@@ -499,7 +507,11 @@
           context.arc(point.x, point.y, settings.pointSize, 0, Math.PI * 2);
           context.fill();
         }
-        if (settings.blackHole) drawBlackHole(settings, timestamp);
+        if (settings.blackHole) drawBlackHole(settings, holeRadius);
+      }
+
+      function getBlackHoleRadius() {
+        return Math.max(10, Math.min(20, Math.min(state.width, state.height) * 0.035));
       }
 
       function aimAtBlackHole(point, settings) {
@@ -508,10 +520,16 @@
         const distance = Math.hypot(dx, dy) || 1;
         const inwardX = dx / distance;
         const inwardY = dy / distance;
-        const swirl = 0.35 + Math.min(0.7, 18 / distance);
-        const magnitude = Number(settings.speed) * (0.35 + Math.min(1.35, 18 / distance));
-        point.vx = (inwardX - inwardY * swirl) * magnitude;
-        point.vy = (inwardY + inwardX * swirl) * magnitude;
+        const captureRadius = getBlackHoleRadius() + 5;
+        const gravityRange = getBlackHoleRadius() * 5;
+        const gravity = Math.max(0, Math.min(1,
+          (gravityRange - distance) / (gravityRange - captureRadius)
+        ));
+        const easedGravity = gravity * gravity * (3 - 2 * gravity);
+        const inwardSpeed = settings.speed * (0.08 + easedGravity * 1.47);
+        const orbitalSpeed = settings.speed * (0.9 - easedGravity * 0.52);
+        point.vx = inwardX * inwardSpeed - inwardY * orbitalSpeed;
+        point.vy = inwardY * inwardSpeed + inwardX * orbitalSpeed;
       }
 
       function respawnAtCanvasEdge(settings) {
@@ -525,10 +543,9 @@
         return point;
       }
 
-      function drawBlackHole(settings, timestamp) {
+      function drawBlackHole(settings, radius) {
         const centerX = state.width / 2;
         const centerY = state.height / 2;
-        const radius = Math.max(12, Math.min(24, Math.min(state.width, state.height) * 0.045));
         const glowRadius = radius * 5;
         const glow = context.createRadialGradient(centerX, centerY, radius * 0.6, centerX, centerY, glowRadius);
         glow.addColorStop(0, `hsla(${settings.hue}, 100%, 72%, 0.24)`);
@@ -538,29 +555,6 @@
         context.fillRect(centerX - glowRadius, centerY - glowRadius, glowRadius * 2, glowRadius * 2);
 
         context.save();
-        context.translate(centerX, centerY);
-        context.rotate(timestamp * 0.00018);
-        context.scale(1, 0.38);
-        const disk = context.createLinearGradient(-radius * 4, 0, radius * 4, 0);
-        disk.addColorStop(0, 'rgba(0, 0, 0, 0)');
-        disk.addColorStop(0.35, 'rgba(255, 105, 35, 0.4)');
-        disk.addColorStop(0.48, `hsla(${settings.hue}, 100%, 82%, 0.95)`);
-        disk.addColorStop(0.55, 'rgba(255, 216, 145, 0.9)');
-        disk.addColorStop(0.7, 'rgba(255, 103, 37, 0.55)');
-        disk.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        context.strokeStyle = disk;
-        context.lineWidth = Math.max(5, radius * 0.42);
-        context.beginPath();
-        context.ellipse(0, 0, radius * 3.5, radius * 1.8, 0, 0, Math.PI * 2);
-        context.stroke();
-        context.strokeStyle = 'rgba(255, 220, 166, 0.72)';
-        context.lineWidth = Math.max(1, radius * 0.08);
-        context.beginPath();
-        context.ellipse(0, 0, radius * 2.45, radius * 1.25, 0, 0, Math.PI * 2);
-        context.stroke();
-        context.restore();
-
-        context.save();
         context.shadowColor = 'rgba(0, 0, 0, 0.95)';
         context.shadowBlur = radius * 1.4;
         context.fillStyle = '#010204';
@@ -568,11 +562,6 @@
         context.arc(centerX, centerY, radius, 0, Math.PI * 2);
         context.fill();
         context.restore();
-        context.strokeStyle = 'rgba(214, 240, 255, 0.7)';
-        context.lineWidth = Math.max(1, radius * 0.08);
-        context.beginPath();
-        context.arc(centerX, centerY, radius * 1.16, 0, Math.PI * 2);
-        context.stroke();
       }
 
       function animate(timestamp) {
@@ -602,20 +591,13 @@
         const params = new URLSearchParams(window.location.search);
         const invalid = [];
         if (!params.size) return invalid;
-        const numeric = ['pointCount', 'linkRange', 'pointSize', 'speed', 'trails', 'hue', 'variation', 'intensity', 'seed'];
-        const limits = {
-          pointCount: [10, 180], linkRange: [25, 240], pointSize: [0, 5], speed: [1, 12],
-          trails: [0, 100], hue: [0, 360], variation: [0, 180], intensity: [20, 100], seed: [0, 999999]
-        };
-        for (const key of numeric) {
+        for (const key of Object.keys(numericLimits)) {
           if (!params.has(key)) continue;
-          const value = Number(params.get(key));
-          const [min, max] = limits[key];
-          const step = Number(controls[key].step) || 1;
-          const onStep = Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-8;
-          if (Number.isFinite(value) && value >= min && value <= max && (key !== 'seed' || Number.isInteger(value)) && onStep) {
-            controls[key].value = String(value);
-          } else invalid.push(key);
+          try {
+            controls[key].value = String(parseNumericSetting(key, params.get(key)));
+          } catch {
+            invalid.push(key);
+          }
         }
         for (const key of ['centerStart', 'symmetric', 'constantSpeed']) {
           if (!params.has(key)) continue;
@@ -652,10 +634,7 @@
       }
 
       function applyPreset(preset) {
-        const values = preset.values;
-        const presetKeys = ['pointCount', 'linkRange', 'pointSize', 'speed', 'trails', 'hue', 'variation', 'intensity',
-          'centerStart', 'symmetric', 'constantSpeed'];
-        values.forEach((value, index) => {
+        preset.values.forEach((value, index) => {
           const key = presetKeys[index];
           if (controls[key].type === 'checkbox') controls[key].checked = value;
           else controls[key].value = String(value);
@@ -703,17 +682,13 @@
             Math.floor(Math.random() * 101),
             Math.floor(Math.random() * 361),
             Math.floor(Math.random() * 111),
-            35 + Math.floor(Math.random() * 66),
+            Math.floor(Math.random() * 101),
             Math.random() > 0.55,
             Math.random() > 0.7,
             Math.random() > 0.3
           ],
           blackHole: Math.random() > 0.9
         });
-      });
-      document.getElementById('restart').addEventListener('click', () => {
-        try { restart(); setStatus('Mesh restarted from seed.', 'success'); }
-        catch (error) { setStatus(error.message, 'error'); }
       });
       document.getElementById('share').addEventListener('click', copySettingsLink);
       document.getElementById('toggleSettings').addEventListener('click', event => {
