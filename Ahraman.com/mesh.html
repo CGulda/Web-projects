@@ -15,12 +15,9 @@
       <h1 class="sidebar-title">Mesh Generator</h1>
     </div>
     <div class="sidebar-content" id="settingsPanel">
+    <a class="gallery-link" href="index.html">← All patterns</a>
     <p class="intro">Shape a living network of color, light, and motion.</p>
     <section class="controls" aria-label="Mesh settings">
-      <p class="section-heading">Presets</p>
-      <div class="preset-grid" id="presets" aria-label="Mesh presets"></div>
-      <button class="primary" id="randomize" type="button">Randomize</button>
-      <p class="section-heading">Structure &amp; motion</p>
       <div class="field">
         <label for="pageSize">Page size</label>
         <select id="pageSize">
@@ -40,12 +37,18 @@
         <input id="linkRange" type="range" min="25" max="240" value="110">
       </div>
       <div class="field">
-        <label for="pointSize">Particle size <span class="value" id="pointSizeValue"></span></label>
-        <input id="pointSize" type="range" min="0" max="5" step="0.5" value="1.5">
-      </div>
-      <div class="field">
         <label for="speed">Motion speed <span class="value" id="speedValue"></span></label>
         <input id="speed" type="range" min="1" max="12" value="3">
+      </div>
+      <div class="toggle-grid">
+        <label class="toggle-row"><input id="centerStart" type="checkbox"> Start at center</label>
+        <label class="toggle-row"><input id="symmetric" type="checkbox"> Symmetric</label>
+        <label class="toggle-row"><input id="constantSpeed" type="checkbox" checked> Constant speed</label>
+        <label class="toggle-row"><input id="blackHole" type="checkbox"> Black hole</label>
+      </div>
+      <div class="field">
+        <label for="pointSize">Particle size <span class="value" id="pointSizeValue"></span></label>
+        <input id="pointSize" type="range" min="0" max="5" step="0.5" value="1.5">
       </div>
       <div class="field">
         <label for="trails">Trail length <span class="value" id="trailsValue"></span></label>
@@ -65,17 +68,14 @@
         <label for="intensity" title="Sets the HSL lightness of particles.">Color lightness <span class="value" id="intensityValue"></span></label>
         <input id="intensity" type="range" min="0" max="100" value="72">
       </div>
-      <div class="toggle-grid">
-        <label class="toggle-row"><input id="centerStart" type="checkbox"> Start at center</label>
-        <label class="toggle-row"><input id="symmetric" type="checkbox"> Symmetric</label>
-        <label class="toggle-row"><input id="constantSpeed" type="checkbox" checked> Constant speed</label>
-        <label class="toggle-row"><input id="blackHole" type="checkbox"> Black hole</label>
-      </div>
       <div class="field">
         <label for="seed">Random seed</label>
         <input id="seed" type="number" min="0" max="999999" step="1">
       </div>
+      <p class="section-heading">Presets</p>
+      <div class="preset-grid" id="presets" aria-label="Mesh presets"></div>
       <div class="button-stack">
+        <button class="primary" id="randomize" type="button">Randomize</button>
         <button id="savePNG" type="button">Save black-and-white PNG</button>
         <button id="share" type="button">Copy settings link</button>
       </div>
@@ -87,7 +87,6 @@
       </div>
       <p class="status" id="status" role="status" aria-live="polite"></p>
     </section>
-    <a class="gallery-link" href="index.html">← All patterns</a>
     </div>
   </aside>
   <main class="stage" aria-label="Animated mesh preview">
@@ -101,7 +100,7 @@
       const context = canvas.getContext('2d');
       const stage = document.querySelector('.stage');
       const pageSize = document.getElementById('pageSize');
-      const { pageSizes, pageDimensions, fitCanvas, savePng } = AhramanArtwork;
+      const { pageSizes, pageDimensions, fitCanvas, savePng, copyText } = AhramanArtwork;
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
       const controls = {
         pointCount: document.getElementById('pointCount'),
@@ -514,7 +513,7 @@
         shareField.hidden = false;
         shareLink.select();
         try {
-          await navigator.clipboard.writeText(url);
+          await copyText(url, shareLink);
           setStatus('Settings link copied. You can also use it to create a QR code.', 'success');
         } catch (error) {
           setStatus(`The link is ready below, but could not be copied automatically: ${error.message}`, 'error');
@@ -630,7 +629,6 @@
         event.currentTarget.setAttribute('aria-label', collapsed ? 'Show settings' : 'Hide settings');
         event.currentTarget.title = collapsed ? 'Show settings' : 'Hide settings';
         event.currentTarget.textContent = collapsed ? '›' : '‹';
-        requestAnimationFrame(resizeSafely);
       });
       function resizeSafely() {
         try {

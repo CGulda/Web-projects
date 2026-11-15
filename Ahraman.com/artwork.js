@@ -85,5 +85,21 @@
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  globalThis.AhramanArtwork = { pageSizes, pageDimensions, fitCanvas, pngWithDpi, savePng };
+  async function copyText(text, input) {
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch (error) {
+        if (!document.queryCommandSupported('copy')) throw error;
+      }
+    }
+    input.focus();
+    input.select();
+    if (!document.execCommand('copy')) {
+      throw new Error('Clipboard access was denied by the browser.');
+    }
+  }
+
+  globalThis.AhramanArtwork = { pageSizes, pageDimensions, fitCanvas, pngWithDpi, savePng, copyText };
 })();

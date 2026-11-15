@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
-import { generateGrid, generateSteps, generateViewportSteps, gridDimensions, gridSizeForCellSize, hexTiles, hexVariants, neighbors, randomGenerator, roadPath, triangleTiles, triangleVariants, variants, viewportDimensions } from './wavefuncallapse.mjs';
+import { createHueLimiter, generateGrid, generateSteps, generateViewportSteps, gridDimensions, gridSizeForCellSize, hexTiles, hexVariants, hueNoise, spatialHueNoise, neighbors, randomGenerator, roadPath, triangleTiles, triangleVariants, variants, viewportDimensions } from './wavefuncallapse.mjs';
 import './artwork.js';
 
 function seededRandom(seed) {
@@ -33,6 +33,79 @@ test('a seed reproduces the same grid for each shape and symmetry', () => {
       const first = generateGrid(8, randomGenerator(12345), symmetry, shape);
       assert.deepEqual(generateGrid(8, randomGenerator(12345), symmetry, shape), first);
       assert.notDeepEqual(generateGrid(8, randomGenerator(12346), symmetry, shape), first);
+    }
+  }
+});
+
+test('hue noise starts at the selected colour and varies smoothly within its bounds', () => {
+  assert.equal(hueNoise(42, 0), 0);
+  assert.equal(hueNoise(42, 2.4), hueNoise(42, 2.4));
+  assert.notEqual(hueNoise(42, 2.4), hueNoise(43, 2.4));
+  for (let position = 0; position < 8; position += 0.01) {
+    const value = hueNoise(42, position);
+    assert.ok(value >= -1 && value <= 1);
+    assert.ok(Math.abs(value - hueNoise(42, position + 0.01)) < 0.04);
+  }
+});
+
+test('spatial hue noise is seeded, bounded and continuous across both axes', () => {
+  assert.equal(spatialHueNoise(42, 0.7, 1.4), spatialHueNoise(42, 0.7, 1.4));
+  assert.notEqual(spatialHueNoise(42, 0.7, 1.4), spatialHueNoise(43, 0.7, 1.4));
+  assert.notEqual(spatialHueNoise(42, 0.7, 1.4), spatialHueNoise(42, 1.7, 1.4));
+  for (let x = -1; x < 3; x += 0.05) {
+    for (let y = -1; y < 3; y += 0.05) {
+      const value = spatialHueNoise(42, x, y);
+      assert.ok(value >= -1 && value <= 1);
+      assert.ok(Math.abs(value - spatialHueNoise(42, x + 0.01, y)) < 0.04);
+      assert.ok(Math.abs(value - spatialHueNoise(42, x, y + 0.01)) < 0.04);
+    }
+  }
+});
+
+test('hue limiter reconciles previously disconnected neighbours', () => {
+  const dimensions = { columns: 3, rows: 1, count: 3 };
+  const hues = createHueLimiter(dimensions, 'square', 15);
+  hues.addGroup([0], -90);
+  hues.addGroup([2], 90);
+  assert.equal(hues.addGroup([1], 0), true);
+  assert.ok(Math.abs(hues.valueForCell(0) - hues.valueForCell(1)) <= 15);
+  assert.ok(Math.abs(hues.valueForCell(1) - hues.valueForCell(2)) <= 15);
+});
+
+test('a 30-degree hue limit permits differences above 15 degrees', () => {
+  const hues = createHueLimiter({ columns: 2, rows: 1, count: 2 }, 'square', 30);
+  hues.addGroup([0], 0);
+  hues.addGroup([1], 90);
+  assert.equal(hues.valueForCell(1) - hues.valueForCell(0), 30);
+});
+
+test('hue limits hold throughout generation for every shape and symmetry', () => {
+  for (const shape of ['square', 'triangle', 'hexagon']) {
+    for (const symmetry of shape === 'hexagon'
+      ? ['random', 'mirror', 'symmetric', 'hexagonal']
+      : ['random', 'mirror', 'symmetric']) {
+      const dimensions = viewportDimensions(320, 240, 36, shape, symmetry);
+      for (const seed of [1, 42, 123]) {
+        const hues = createHueLimiter(dimensions, shape, 30);
+        const filled = new Set();
+        let step = 0;
+        for (const updates of generateViewportSteps(dimensions, randomGenerator(seed), symmetry)) {
+          const group = updates.map(update => update.index);
+          hues.addGroup(group, hueNoise(seed, step++ / 2) * 180);
+          for (const index of group) filled.add(index);
+          for (const index of group) {
+            assert.equal(hues.valueForCell(index), hues.valueForCell(group[0]));
+          }
+          for (const index of filled) {
+            assert.ok(hues.valueForCell(index) >= -180 && hues.valueForCell(index) <= 180);
+            for (const neighbor of neighbors(index, dimensions, shape)) {
+              if (filled.has(neighbor.index)) {
+                assert.ok(Math.abs(hues.valueForCell(index) - hues.valueForCell(neighbor.index)) <= 30 + 1e-9);
+              }
+            }
+          }
+        }
+      }
     }
   }
 });
@@ -361,9 +434,30 @@ test('cell size selects the number of cells that fit the artwork', () => {
     assert.equal(gridSizeForCellSize(12, shape), 66);
     assert.equal(gridSizeForCellSize(72, shape), 11);
     assert.throws(() => gridSizeForCellSize(11, shape), /Cell size/);
-    assert.throws(() => gridSizeForCellSize(73, shape), /Cell size/);
+    assert.throws(() => gridSizeForCellSize(1025, shape), /Cell size/);
     assert.throws(() => viewportDimensions(800, 600, 11, shape), /Cell size/);
-    assert.throws(() => viewportDimensions(800, 600, 73, shape), /Cell size/);
+    assert.throws(() => viewportDimensions(800, 600, 1025, shape), /Cell size/);
+    assert.ok(viewportDimensions(800, 600, 1024, shape).count > 0);
+  }
+});
+
+test('large preset and custom cells still generate matching connections', () => {
+  for (const shape of ['square', 'triangle', 'hexagon']) {
+    for (const size of [256, 1024]) {
+      const symmetry = shape === 'hexagon' ? 'hexagonal' : 'symmetric';
+      const dimensions = viewportDimensions(375, 812, size, shape, symmetry);
+      const cells = Array(dimensions.count).fill(null);
+      for (const updates of generateViewportSteps(dimensions, randomGenerator(7), symmetry)) {
+        for (const { index, mask } of updates) cells[index] = mask;
+      }
+      assert.ok(cells.every(mask => mask !== null));
+      for (let index = 0; index < cells.length; index++) {
+        for (const neighbor of neighbors(index, dimensions, shape)) {
+          assert.equal(Boolean(cells[index] & neighbor.direction.bit),
+            Boolean(cells[neighbor.index] & neighbor.direction.opposite));
+        }
+      }
+    }
   }
 });
 
@@ -394,7 +488,7 @@ test('PNG print metadata is inserted and replaced at 300 DPI', async () => {
   assert.throws(() => pngWithDpi(first.subarray(0, first.length - 12), 300), /PNG/);
 });
 
-test('all supported cell sizes fit their shapes within the artwork', () => {
+test('original cell size range fits its shapes within the artwork', () => {
   for (let cellSize = 12; cellSize <= 72; cellSize++) {
     const squareSize = gridSizeForCellSize(cellSize, 'square');
     assert.ok(squareSize * cellSize <= 800);

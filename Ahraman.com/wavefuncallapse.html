@@ -15,6 +15,7 @@
         <h1 class="sidebar-title">Wave Function Collapse</h1>
       </div>
       <div class="sidebar-content" id="settingsPanel" hidden>
+        <a class="gallery-link" href="index.html">← All patterns</a>
         <p class="intro">Generate a grid of road tiles with matching connections.</p>
         <section class="controls" aria-label="Grid settings">
           <div class="field">
@@ -36,21 +37,20 @@
             </select>
           </div>
           <div class="field">
-            <label for="cellSize">Cell size <output id="cellSizeValue" for="cellSize">42 px</output></label>
-            <input id="cellSize" type="range" min="12" max="72" value="42">
+            <label for="cellSize">Cell size <output id="cellSizeValue" for="cellSize">48 px</output></label>
+            <input id="cellSize" type="range" min="0" max="8" step="1" value="3" list="cellSizeOptions" aria-describedby="cellSizeHint">
+            <datalist id="cellSizeOptions">
+              <option value="0" label="12"></option><option value="1" label="24"></option>
+              <option value="2" label="36"></option><option value="3" label="48"></option>
+              <option value="4" label="64"></option><option value="5" label="96"></option>
+              <option value="6" label="144"></option><option value="7" label="256"></option>
+              <option value="8" label="Custom"></option>
+            </datalist>
+            <p class="hint" id="cellSizeHint">12 · 24 · 36 · 48 · 64 · 96 · 144 · 256 · Custom. Scroll over the artwork to zoom.</p>
           </div>
-          <div class="field">
-            <label for="pathWidth">Path width <output id="pathWidthValue" for="pathWidth">42%</output></label>
-            <input id="pathWidth" type="range" min="4" max="80" step="2" value="42">
-          </div>
-          <label class="check-row" for="rounded">
-            <input id="rounded" type="checkbox" checked>
-            Rounded turns
-          </label>
-          <div class="field">
-            <label for="innerWidth">Inner path <output id="innerWidthValue" for="innerWidth">80%</output></label>
-            <input id="innerWidth" type="range" min="0" max="90" step="5" value="80" aria-describedby="innerWidthHint">
-            <p class="hint" id="innerWidthHint">Width relative to the path; 0% makes paths solid.</p>
+          <div class="field" id="customCellSizeField" hidden>
+            <label for="customCellSize">Custom cell size · px</label>
+            <input id="customCellSize" type="number" min="12" max="1024" step="1" value="42" required>
           </div>
           <div class="field">
             <label for="symmetry">Symmetry</label>
@@ -60,6 +60,28 @@
               <option value="symmetric">Symmetric · both axes</option>
               <option value="hexagonal" selected>Hexagonal · sixfold kaleidoscope</option>
             </select>
+          </div>
+          <div class="field">
+            <label for="pathWidth">Path width <output id="pathWidthValue" for="pathWidth">42%</output></label>
+            <input id="pathWidth" type="range" min="4" max="80" step="2" value="42">
+          </div>
+          <div class="field">
+            <label for="innerWidth">Inner path <output id="innerWidthValue" for="innerWidth">80%</output></label>
+            <input id="innerWidth" type="range" min="0" max="90" step="5" value="80" aria-describedby="innerWidthHint">
+            <p class="hint" id="innerWidthHint">Width relative to the path; 0% makes paths solid.</p>
+          </div>
+          <label class="check-row" for="rounded">
+            <input id="rounded" type="checkbox" checked>
+            Rounded turns
+          </label>
+          <div class="field">
+            <label for="roadColor">Starting colour</label>
+            <input id="roadColor" type="color" value="#73e5c4">
+          </div>
+          <div class="field">
+            <label for="hueVariation">Hue variation <output id="hueVariationValue" for="hueVariation">80°</output></label>
+            <input id="hueVariation" type="range" min="0" max="180" step="1" value="80">
+            <p class="hint">Adjacent cells differ by at most 30° in hue; muted colours may vary less. Reduced-motion preferences pause colour animation.</p>
           </div>
           <div class="field">
             <label for="seed">Random seed</label>
@@ -81,7 +103,6 @@
           <p class="hint">Current-page links adapt to available space. Resizing a current-page artwork regenerates it with the same seed.</p>
           <p class="status" id="status" role="status" aria-live="polite"></p>
         </section>
-        <a class="gallery-link" href="index.html">← All patterns</a>
       </div>
     </aside>
     <main class="stage" aria-label="Generated road grid">
@@ -107,9 +128,9 @@
         toggle.disabled = true;
         return;
       }
-      const { directions, viewportDimensions, generateViewportSteps, randomGenerator, roadPath } = AhramanWFC;
+      const { directions, viewportDimensions, generateViewportSteps, randomGenerator, roadPath, hueNoise, createHueLimiter } = AhramanWFC;
       const canvas = document.getElementById('grid');
-      const { pageSizes, pageDimensions, fitCanvas, savePng } = AhramanArtwork;
+      const { pageSizes, pageDimensions, fitCanvas, savePng, copyText } = AhramanArtwork;
       const context = canvas.getContext('2d');
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
       const base = document.createElement('canvas');
@@ -122,11 +143,17 @@
       const pageSize = document.getElementById('pageSize');
       const sizeInput = document.getElementById('cellSize');
       const sizeValue = document.getElementById('cellSizeValue');
+      const customSizeInput = document.getElementById('customCellSize');
+      const customSizeField = document.getElementById('customCellSizeField');
+      const sizePresets = [12, 24, 36, 48, 64, 96, 144, 256];
       const widthInput = document.getElementById('pathWidth');
       const widthValue = document.getElementById('pathWidthValue');
       const roundedInput = document.getElementById('rounded');
       const innerWidthInput = document.getElementById('innerWidth');
       const innerWidthValue = document.getElementById('innerWidthValue');
+      const colorInput = document.getElementById('roadColor');
+      const hueVariationInput = document.getElementById('hueVariation');
+      const hueVariationValue = document.getElementById('hueVariationValue');
       const symmetryInput = document.getElementById('symmetry');
       const hexSymmetryOption = symmetryInput.querySelector('option[value="hexagonal"]');
       const seedInput = document.getElementById('seed');
@@ -152,6 +179,8 @@
       let finishAnimation = null;
       let displayCells = [];
       let displayOrder = [];
+      let fillGroups = [];
+      let hueLimiter = null;
       let displayCellSize = 50;
       let displayDimensions = null;
       let displayShape = 'square';
@@ -160,6 +189,120 @@
       let artworkRatio = 0;
       let linkWarning = '';
       let generationComplete = false;
+      let colorFrame = 0;
+      let colorStart = 0;
+      let lastColorUpdate = 0;
+      let colorPalette = null;
+      let hueDifferenceLimit = 0;
+      let colorPhase = 0;
+      let animateColorEnabled = true;
+      let repaintingColors = false;
+      let zoomTimer = 0;
+      let zoomSize = 0;
+
+      function cellSize() {
+        const index = Number(sizeInput.value);
+        if (index < sizePresets.length) return sizePresets[index];
+        const value = Number(customSizeInput.value);
+        if (!customSizeInput.value.trim() || !Number.isInteger(value) || value < 12 || value > 1024) {
+          throw new Error('Custom cell size must be a whole number from 12 to 1024 px.');
+        }
+        return value;
+      }
+
+      function makeColorPalette(hex, variation) {
+        const channels = [1, 3, 5].map(offset => parseInt(hex.slice(offset, offset + 2), 16) / 255);
+        const [red, green, blue] = channels;
+        const max = Math.max(...channels);
+        const min = Math.min(...channels);
+        const delta = max - min;
+        // Leave room for RGB and palette rounding, especially for near-grey colours.
+        hueDifferenceLimit = delta ? Math.max(0, 30 - 180 / (delta * 255)) : 0;
+        const lightness = (max + min) / 2;
+        const saturation = delta ? delta / (1 - Math.abs(2 * lightness - 1)) : 0;
+        let hue = 0;
+        if (delta) {
+          if (max === red) hue = ((green - blue) / delta) % 6;
+          else if (max === green) hue = (blue - red) / delta + 2;
+          else hue = (red - green) / delta + 4;
+          hue *= 60;
+        }
+        const palette = [];
+        const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+        const match = lightness - chroma / 2;
+        for (let index = 0; index <= 1024; index++) {
+          const angle = ((hue + variation * (index / 512 - 1)) % 360 + 360) % 360 / 60;
+          const secondary = chroma * (1 - Math.abs(angle % 2 - 1));
+          const [r, g, b] = angle < 1 ? [chroma, secondary, 0]
+            : angle < 2 ? [secondary, chroma, 0]
+            : angle < 3 ? [0, chroma, secondary]
+            : angle < 4 ? [0, secondary, chroma]
+            : angle < 5 ? [secondary, 0, chroma] : [chroma, 0, secondary];
+          palette.push(`rgb(${Math.round((r + match) * 255)}, ${Math.round((g + match) * 255)}, ${Math.round((b + match) * 255)})`);
+        }
+        return palette;
+      }
+
+      function cellColor(index) {
+        const variation = Number(hueVariationInput.value);
+        if (variation === 0) return colorInput.value;
+        const hue = hueLimiter.valueForCell(index);
+        return colorPalette[Math.max(0, Math.min(1024, Math.round((hue / variation + 1) * 512)))];
+      }
+
+      function rebuildHueLimiter() {
+        const variation = Number(hueVariationInput.value);
+        hueLimiter = variation > 0 ? createHueLimiter(displayDimensions, displayShape, hueDifferenceLimit) : null;
+        if (!hueLimiter) return;
+        const seed = Number(seedInput.value);
+        fillGroups.forEach((group, step) => {
+          hueLimiter.addGroup(group, hueNoise(seed, step / 2 + colorPhase) * variation);
+        });
+      }
+
+      function compositeGrid() {
+        context.drawImage(base, 0, 0, artworkWidth, artworkHeight);
+        context.drawImage(outer, 0, 0, artworkWidth, artworkHeight);
+        context.drawImage(inner, 0, 0, artworkWidth, artworkHeight);
+      }
+
+      function repaintRoadColors() {
+        outerContext.clearRect(0, 0, artworkWidth, artworkHeight);
+        repaintingColors = true;
+        try {
+          paintGrid(displayCells, displayShape, null);
+        } finally {
+          repaintingColors = false;
+        }
+        compositeGrid();
+      }
+
+      function animateColor(timestamp) {
+        if (timestamp - lastColorUpdate >= 100 && (generationComplete || frame)) {
+          colorPhase = (timestamp - colorStart) / 2000;
+          rebuildHueLimiter();
+          repaintRoadColors();
+          lastColorUpdate = timestamp;
+        }
+        colorFrame = requestAnimationFrame(animateColor);
+      }
+
+      function resetColor() {
+        cancelAnimationFrame(colorFrame);
+        colorFrame = 0;
+        colorStart = performance.now();
+        lastColorUpdate = 0;
+        colorPhase = 0;
+        hueVariationValue.textContent = `${hueVariationInput.value}°`;
+        if (Number(hueVariationInput.value) > 0) {
+          colorPalette = makeColorPalette(colorInput.value, Number(hueVariationInput.value));
+        }
+        if (displayDimensions) rebuildHueLimiter();
+        if (displayDimensions && (generationComplete || frame)) repaintRoadColors();
+        if (animateColorEnabled && Number(hueVariationInput.value) > 0 && !reducedMotion.matches && !document.hidden) {
+          colorFrame = requestAnimationFrame(animateColor);
+        }
+      }
 
       function resizeArtwork() {
         const { width, height } = pageDimensions(pageSize.value, stage);
@@ -178,15 +321,15 @@
         }
       }
 
-      function drawRoad(points, center, width) {
+      function drawRoad(points, center, width, index) {
         const path = new Path2D(roadPath(points, center, roundedInput.checked ? 50 : 0));
-        outerContext.strokeStyle = '#73e5c4';
+        outerContext.strokeStyle = cellColor(index);
         outerContext.lineWidth = width;
         outerContext.lineCap = 'round';
         outerContext.lineJoin = 'round';
         outerContext.stroke(path);
         const innerWidth = width * Number(innerWidthInput.value) / 100;
-        if (innerWidth > 0) {
+        if (!repaintingColors && innerWidth > 0) {
           innerContext.strokeStyle = '#0d1418';
           innerContext.lineWidth = innerWidth;
           innerContext.lineCap = 'round';
@@ -207,9 +350,7 @@
           innerContext.clearRect(0, 0, artworkWidth, artworkHeight);
         }
         paintGrid(cells, shape, updates);
-        context.drawImage(base, 0, 0, artworkWidth, artworkHeight);
-        context.drawImage(outer, 0, 0, artworkWidth, artworkHeight);
-        context.drawImage(inner, 0, 0, artworkWidth, artworkHeight);
+        compositeGrid();
       }
 
       function drawSquares(cells, updates) {
@@ -217,7 +358,7 @@
         const step = displayCellSize;
         const offsetX = (artworkWidth - step * columns) / 2;
         const offsetY = (artworkHeight - step * rows) / 2;
-        if (!updates) {
+        if (!updates && !repaintingColors) {
           baseContext.fillStyle = '#0d1418';
           baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
           baseContext.strokeStyle = 'rgba(216, 244, 236, 0.13)';
@@ -242,7 +383,7 @@
           const y = offsetY + Math.floor(index / columns) * step;
           const points = directions.filter(direction => mask & direction.bit)
             .map(direction => [x + direction.x * step, y + direction.y * step]);
-          drawRoad(points, [x + step / 2, y + step / 2], roadWidth);
+          drawRoad(points, [x + step / 2, y + step / 2], roadWidth, index);
         }
         if (updates) updates.forEach(({ mask, index }) => drawTile(mask, index));
         else displayOrder.forEach(index => drawTile(cells[index], index));
@@ -254,7 +395,7 @@
         const height = side * Math.sqrt(3) / 2;
         const offsetX = (artworkWidth - side * (columns + 1) / 2) / 2;
         const offsetY = (artworkHeight - rows * height) / 2;
-        if (!updates) {
+        if (!updates && !repaintingColors) {
           baseContext.fillStyle = '#0d1418';
           baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
           baseContext.strokeStyle = 'rgba(216, 244, 236, 0.13)';
@@ -289,7 +430,7 @@
             [x + side * 3 / 4, y + height / 2],
             [centerX, y + (up ? height : 0)]
           ];
-          drawRoad(endpoints.filter((point, edge) => mask & (1 << edge)), [centerX, centerY], roadWidth);
+          drawRoad(endpoints.filter((point, edge) => mask & (1 << edge)), [centerX, centerY], roadWidth, index);
         }
         if (updates) updates.forEach(({ mask, index }) => drawTile(mask, index));
         else displayOrder.forEach(index => drawTile(cells[index], index));
@@ -303,7 +444,7 @@
           return [artworkWidth / 2 + displayCellSize * (q + r / 2),
             artworkHeight / 2 + displayCellSize * Math.sqrt(3) / 2 * r];
         };
-        if (!updates) {
+        if (!updates && !repaintingColors) {
           baseContext.fillStyle = '#0d1418';
           baseContext.fillRect(0, 0, artworkWidth, artworkHeight);
           // A hex grid repeats after two staggered rows.
@@ -349,13 +490,16 @@
             const angle = edge * Math.PI / 3;
             points.push([x + displayCellSize / 2 * Math.cos(angle), y + displayCellSize / 2 * Math.sin(angle)]);
           }
-          drawRoad(points, [x, y], roadWidth);
+          drawRoad(points, [x, y], roadWidth, index);
         }
         if (updates) updates.forEach(({ mask, index }) => drawTile(mask, index));
         else displayOrder.forEach(index => drawTile(cells[index], index));
       }
 
-      function generate() {
+      function generate(event, instant = false) {
+        clearTimeout(zoomTimer);
+        zoomTimer = 0;
+        canvas.style.transform = '';
         generationComplete = false;
         cancelAnimationFrame(frame);
         clearTimeout(generationTimer);
@@ -370,10 +514,18 @@
           setSettingsOpen(true);
           return;
         }
+        let selectedSize;
+        try {
+          selectedSize = cellSize();
+        } catch (error) {
+          status.textContent = error.message;
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+          return;
+        }
         resizeArtwork();
-        const cellSize = Number(sizeInput.value);
         const shape = shapeInput.value;
-        const dimensions = viewportDimensions(artworkWidth, artworkHeight, cellSize, shape, symmetryInput.value);
+        const dimensions = viewportDimensions(artworkWidth, artworkHeight, selectedSize, shape, symmetryInput.value);
         const count = dimensions.count;
         const description = shape === 'hexagon'
           ? `${count} hexagonal tiles`
@@ -381,11 +533,13 @@
           ? `${dimensions.columns} × ${dimensions.rows} triangular tiles`
           : `${dimensions.columns} × ${dimensions.rows} road grid`;
         const iterator = generateViewportSteps(dimensions, randomGenerator(seed), symmetryInput.value);
-        displayCellSize = cellSize;
+        displayCellSize = selectedSize;
         displayDimensions = dimensions;
         displayShape = shape;
         displayCells = Array(count).fill(null);
         displayOrder = [];
+        fillGroups = [];
+        resetColor();
         drawGrid(displayCells, shape);
         canvas.setAttribute('aria-label', `Generating ${description}`);
         status.textContent = 'Generating road grid…';
@@ -396,6 +550,7 @@
           const started = performance.now();
           let processed = 0;
           let complete = false;
+          let colorsChanged = false;
           const updates = [];
           do {
             const next = iterator.next();
@@ -403,6 +558,12 @@
               complete = true;
               break;
             }
+            const group = next.value.map(update => update.index);
+            if (hueLimiter) {
+              const target = hueNoise(seed, fillGroups.length / 2 + colorPhase) * Number(hueVariationInput.value);
+              colorsChanged = hueLimiter.addGroup(group, target) || colorsChanged;
+            }
+            fillGroups.push(group);
             for (const update of next.value) {
               displayCells[update.index] = update.mask;
               displayOrder.push(update.index);
@@ -410,7 +571,9 @@
             }
             processed++;
           } while (processed < batch && performance.now() - started < 8);
-          if (animate || complete) drawGrid(displayCells, shape, updates);
+          if (complete) drawGrid(displayCells, shape);
+          else if (animate && colorsChanged) drawGrid(displayCells, shape);
+          else if (animate) drawGrid(displayCells, shape, updates);
           else paintGrid(displayCells, shape, updates);
           if (complete) {
             generationComplete = true;
@@ -443,7 +606,7 @@
           }
         }
 
-        if (animatedInput.checked && !reducedMotion.matches) {
+        if (!instant && animatedInput.checked && !reducedMotion.matches) {
           finishAnimation = () => run(false);
           frame = requestAnimationFrame(() => run(true));
         } else {
@@ -459,7 +622,12 @@
       }
 
       function updateSizeLabel() {
-        sizeValue.textContent = `${sizeInput.value} px`;
+        const index = Number(sizeInput.value);
+        const custom = index === sizePresets.length;
+        customSizeField.hidden = !custom;
+        const label = custom ? `Custom · ${customSizeInput.value || '—'} px` : `${sizePresets[index]} px`;
+        sizeValue.textContent = label;
+        sizeInput.setAttribute('aria-valuetext', label);
       }
 
       function restoreSettings() {
@@ -471,8 +639,8 @@
           else invalid.push(key);
         }
         for (const [key, input, min, max, step] of [
-          ['cellSize', sizeInput, 12, 72, 1], ['pathWidth', widthInput, 4, 80, 2],
-          ['innerWidth', innerWidthInput, 0, 90, 5], ['seed', seedInput, 0, 999999, 1]
+          ['pathWidth', widthInput, 4, 80, 2], ['innerWidth', innerWidthInput, 0, 90, 5],
+          ['seed', seedInput, 0, 999999, 1], ['hueVariation', hueVariationInput, 0, 180, 1]
         ]) {
           if (!params.has(key)) continue;
           const raw = params.get(key).trim();
@@ -481,11 +649,34 @@
               Number.isInteger((value - min) / step)) input.value = String(value);
           else invalid.push(key);
         }
+        const sizeMode = params.get('sizeMode');
+        if (sizeMode !== null && sizeMode !== 'preset' && sizeMode !== 'custom') invalid.push('sizeMode');
+        if (params.has('cellSize')) {
+          const raw = params.get('cellSize').trim();
+          const value = Number(raw);
+          if (raw && Number.isInteger(value) && value >= 12 && value <= 1024) {
+            const index = sizePresets.indexOf(value);
+            const custom = sizeMode === 'custom' || index === -1;
+            if (sizeMode === 'preset' && index === -1) invalid.push('sizeMode');
+            sizeInput.value = String(custom ? sizePresets.length : index);
+            if (custom) customSizeInput.value = String(value);
+          } else invalid.push('cellSize');
+        }
+        if (params.has('color')) {
+          const color = params.get('color');
+          if (/^#[0-9a-f]{6}$/i.test(color)) colorInput.value = color;
+          else invalid.push('color');
+        }
         for (const [key, input] of [['rounded', roundedInput], ['animated', animatedInput]]) {
           if (!params.has(key)) continue;
           const value = params.get(key);
           if (value === '0' || value === '1') input.checked = value === '1';
           else invalid.push(key);
+        }
+        if (params.has('animateColor')) {
+          const value = params.get('animateColor');
+          if (value === '0' || value === '1') animateColorEnabled = value === '1';
+          else invalid.push('animateColor');
         }
         if (shapeInput.value !== 'hexagon' && symmetryInput.value === 'hexagonal') {
           if (params.has('symmetry')) invalid.push('symmetry');
@@ -501,12 +692,24 @@
           setSettingsOpen(true);
           return;
         }
+        let selectedSize;
+        try {
+          selectedSize = cellSize();
+        } catch (error) {
+          status.textContent = error.message;
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+          return;
+        }
         const url = new URL(window.location.href);
         url.search = new URLSearchParams({
-          page: pageSize.value, shape: shapeInput.value, cellSize: sizeInput.value,
+          page: pageSize.value, shape: shapeInput.value, cellSize: String(selectedSize),
+          sizeMode: Number(sizeInput.value) === sizePresets.length ? 'custom' : 'preset',
           pathWidth: widthInput.value, innerWidth: innerWidthInput.value,
+          color: colorInput.value, hueVariation: hueVariationInput.value,
           rounded: roundedInput.checked ? '1' : '0', symmetry: symmetryInput.value,
-          seed: seedInput.value, animated: animatedInput.checked ? '1' : '0'
+          seed: seedInput.value, animated: animatedInput.checked ? '1' : '0',
+          animateColor: animateColorEnabled ? '1' : '0'
         }).toString();
         url.hash = '';
         const field = document.getElementById('settingsLinkField');
@@ -515,7 +718,7 @@
         field.hidden = false;
         input.select();
         try {
-          await navigator.clipboard.writeText(input.value);
+          await copyText(input.value, input);
           status.textContent = 'Settings link copied.';
           status.dataset.state = 'success';
         } catch (error) {
@@ -526,7 +729,7 @@
       }
 
       async function savePNG() {
-        if (!displayDimensions || !generationComplete) {
+        if (!displayDimensions || !generationComplete || zoomTimer) {
           status.textContent = 'Wait for the grid to finish generating before saving.';
           status.dataset.state = 'error';
           setSettingsOpen(true);
@@ -558,12 +761,42 @@
       }
 
       settingsPanel.addEventListener('change', () => { linkWarning = ''; }, true);
+      stage.addEventListener('wheel', event => {
+        if (event.ctrlKey || event.metaKey || !event.deltaY) return;
+        event.preventDefault();
+        let current;
+        try {
+          current = zoomTimer ? zoomSize : cellSize();
+        } catch (error) {
+          status.textContent = error.message;
+          status.dataset.state = 'error';
+          setSettingsOpen(true);
+          return;
+        }
+        const multiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? stage.clientHeight : 1;
+        const delta = Math.max(-240, Math.min(240, event.deltaY * multiplier));
+        zoomSize = Math.max(12, Math.min(1024, current * Math.exp(-delta * 0.0015)));
+        if (zoomSize === current) return;
+        linkWarning = '';
+        sizeInput.value = String(sizePresets.length);
+        customSizeInput.value = String(Math.round(zoomSize));
+        updateSizeLabel();
+        if (displayDimensions) canvas.style.transform = `scale(${zoomSize / displayCellSize})`;
+        status.textContent = 'Zooming; the grid will regenerate when scrolling stops.';
+        status.dataset.state = '';
+        clearTimeout(zoomTimer);
+        zoomTimer = setTimeout(() => generate(undefined, true), 150);
+      }, { passive: false });
       pageSize.addEventListener('change', generate);
       sizeInput.addEventListener('input', updateSizeLabel);
       sizeInput.addEventListener('change', generate);
+      customSizeInput.addEventListener('input', updateSizeLabel);
+      customSizeInput.addEventListener('change', generate);
       widthInput.addEventListener('input', updatePathStyle);
       innerWidthInput.addEventListener('input', updatePathStyle);
       roundedInput.addEventListener('change', updatePathStyle);
+      colorInput.addEventListener('input', resetColor);
+      hueVariationInput.addEventListener('input', resetColor);
       seedInput.addEventListener('change', generate);
       symmetryInput.addEventListener('change', generate);
       function updateGridHint() {
@@ -599,12 +832,14 @@
         }
       });
       reducedMotion.addEventListener('change', () => {
+        resetColor();
         if (reducedMotion.matches && frame && finishAnimation) {
           cancelAnimationFrame(frame);
           frame = 0;
           finishAnimation();
         }
       });
+      document.addEventListener('visibilitychange', resetColor);
       document.getElementById('randomize').addEventListener('click', () => {
         const currentSeed = Number(seedInput.value);
         let nextSeed = Math.floor(Math.random() * 1000000);

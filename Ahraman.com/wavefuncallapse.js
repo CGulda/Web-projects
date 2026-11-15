@@ -80,6 +80,32 @@ function randomGenerator(seed) {
   };
 }
 
+function hueNoise(seed, position) {
+  const index = Math.floor(position);
+  const fraction = position - index;
+  const weight = fraction * fraction * (3 - 2 * fraction);
+  const sample = point => point === 0 ? 0
+    : randomGenerator((seed ^ Math.imul(point, 0x9e3779b9)) >>> 0)() * 2 - 1;
+  return sample(index) * (1 - weight) + sample(index + 1) * weight;
+}
+
+function spatialHueNoise(seed, x, y) {
+  const left = Math.floor(x);
+  const top = Math.floor(y);
+  const smooth = value => value * value * (3 - 2 * value);
+  const u = smooth(x - left);
+  const v = smooth(y - top);
+  const sample = (column, row) => {
+    let value = seed ^ Math.imul(column, 0x9e3779b9) ^ Math.imul(row, 0x85ebca6b);
+    value = Math.imul(value ^ (value >>> 16), 0x7feb352d);
+    value = Math.imul(value ^ (value >>> 15), 0x846ca68b);
+    return ((value ^ (value >>> 16)) >>> 0) / 0xffffffff * 2 - 1;
+  };
+  const upper = sample(left, top) * (1 - u) + sample(left + 1, top) * u;
+  const lower = sample(left, top + 1) * (1 - u) + sample(left + 1, top + 1) * u;
+  return upper * (1 - v) + lower * v;
+}
+
 const hexDirections = [
   { name: 'east', dq: 1, dr: 0, bit: 1, opposite: 8 },
   { name: 'south-east', dq: 0, dr: 1, bit: 2, opposite: 16 },
@@ -115,8 +141,8 @@ hexTiles.sort((a, b) => a.exits.length - b.exits.length || a.mask - b.mask);
 const hexVariants = [...hexSeen];
 
 function gridSizeForCellSize(cellSize, shape, artworkSize = 800) {
-  if (!Number.isInteger(cellSize) || cellSize < 12 || cellSize > 72) {
-    throw new Error('Cell size must be an integer from 12 to 72 artwork pixels.');
+  if (!Number.isInteger(cellSize) || cellSize < 12 || cellSize > 1024) {
+    throw new Error('Cell size must be an integer from 12 to 1024 artwork pixels.');
   }
   if (!['square', 'triangle', 'hexagon'].includes(shape)) throw new Error('Choose a supported grid shape.');
   let size = Math.floor(artworkSize / cellSize);
@@ -150,8 +176,8 @@ function viewportDimensions(width, height, cellSize, shape, symmetry = 'random')
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     throw new Error('Artwork dimensions must be positive.');
   }
-  if (!Number.isInteger(cellSize) || cellSize < 12 || cellSize > 72) {
-    throw new Error('Cell size must be an integer from 12 to 72 pixels.');
+  if (!Number.isInteger(cellSize) || cellSize < 12 || cellSize > 1024) {
+    throw new Error('Cell size must be an integer from 12 to 1024 pixels.');
   }
   if (shape === 'square') {
     const columns = Math.ceil(width / cellSize);
@@ -223,6 +249,61 @@ function neighbors(index, dimensions, shape = 'square') {
       ? [{ index: nextY * columns + nextX, direction }]
       : [];
   });
+}
+
+function createHueLimiter(dimensions, shape, limit) {
+  if (!Number.isFinite(limit) || limit < 0) throw new Error('Hue limit must be non-negative.');
+  const cellGroups = new Int32Array(dimensions.count);
+  cellGroups.fill(-1);
+  const groups = [];
+  return {
+    addGroup(indices, target) {
+      const id = groups.length;
+      const adjacent = new Set();
+      for (const index of indices) cellGroups[index] = id;
+      for (const index of indices) {
+        for (const neighbor of neighbors(index, dimensions, shape)) {
+          const other = cellGroups[neighbor.index];
+          if (other >= 0 && other !== id) adjacent.add(other);
+        }
+      }
+      let lower = -Infinity;
+      let upper = Infinity;
+      for (const other of adjacent) {
+        lower = Math.max(lower, groups[other].value - limit);
+        upper = Math.min(upper, groups[other].value + limit);
+      }
+      const value = lower <= upper
+        ? Math.max(lower, Math.min(upper, target))
+        : (lower + upper) / 2;
+      groups.push({ value, adjacent });
+      for (const other of adjacent) groups[other].adjacent.add(id);
+
+      const queue = [id];
+      const queued = new Set(queue);
+      let changedPrevious = false;
+      for (let cursor = 0; cursor < queue.length; cursor++) {
+        const current = queue[cursor];
+        queued.delete(current);
+        const currentValue = groups[current].value;
+        for (const other of groups[current].adjacent) {
+          const prior = groups[other].value;
+          const next = Math.max(currentValue - limit, Math.min(currentValue + limit, prior));
+          if (next === prior) continue;
+          groups[other].value = next;
+          if (other !== id) changedPrevious = true;
+          if (!queued.has(other)) {
+            queue.push(other);
+            queued.add(other);
+          }
+        }
+      }
+      return changedPrevious;
+    },
+    valueForCell(index) {
+      return groups[cellGroups[index]].value;
+    }
+  };
 }
 
 function choose(items, random) {
@@ -416,7 +497,7 @@ function generateGrid(size, random = Math.random, symmetry = 'random', shape = '
 
 globalThis.AhramanWFC = {
   directions, tiles, tileMask, variants, triangleTiles, triangleDirections, triangleVariants,
-  roadPath, randomGenerator, hexDirections, hexTiles, hexVariants, gridSizeForCellSize,
-  gridDimensions, viewportDimensions, neighbors, generateSteps, generateViewportSteps, generateGrid
+  roadPath, randomGenerator, hueNoise, spatialHueNoise, hexDirections, hexTiles, hexVariants, gridSizeForCellSize,
+  gridDimensions, viewportDimensions, neighbors, createHueLimiter, generateSteps, generateViewportSteps, generateGrid
 };
 })();
